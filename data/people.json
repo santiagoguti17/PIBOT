@@ -1,0 +1,71 @@
+[
+  {
+    "id": "p1",
+    "name": "Camila Restrepo",
+    "truth": "VIP",
+    "face": {
+      "isMember": true,
+      "confidence": 0.97
+    }
+  },
+  {
+    "id": "p2",
+    "name": "Andrés Molina",
+    "truth": "Miembro regular",
+    "face": {
+      "isMember": true,
+      "confidence": 0.94
+    },
+    "choice": "Gimnasio"
+  },
+  {
+    "id": "p3",
+    "name": "Laura Giraldo",
+    "truth": "Invitado",
+    "face": {
+      "isMember": false,
+      "confidence": 0.91
+    },
+    "code": "FIESTA-7K2"
+  },
+  {
+    "id": "p4",
+    "name": "Jorge Pineda",
+    "truth": "Personal del club",
+    "face": {
+      "isMember": false,
+      "confidence": 0.93
+    },
+    "code": "EMP-0412",
+    "document": "4040404040"
+  },
+  {
+    "id": "p5",
+    "name": "Diego Salazar",
+    "truth": "Trabajador externo",
+    "face": {
+      "isMember": false,
+      "confidence": 0.92
+    },
+    "code": "OBRA-31X"
+  },
+  {
+    "id": "p6",
+    "name": "Mateo Vargas",
+    "truth": "Ambiguo (miembro regular con poca luz)",
+    "face": {
+      "isMember": true,
+      "confidence": 0.58
+    }
+  },
+  {
+    "id": "p7",
+    "name": "Nadia Torres",
+    "truth": "No registrada (código inválido)",
+    "code": "ZZZ-000",
+    "face": {
+      "isMember": false,
+      "confidence": 0.9
+    }
+  }
+]

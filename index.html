@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PIBOT · Framework de recepción para robots</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="6" fill="#0f1623"/><circle cx="10" cy="13" r="3.2" fill="#67e8f9"/><circle cx="18" cy="13" r="3.2" fill="#67e8f9"/><rect x="9" y="19" width="10" height="2" rx="1" fill="#67e8f9" opacity=".55"/></svg>
+      <strong>PIBOT</strong>
+    </div>
+    <input id="flow-name" value="Flujo" aria-label="Nombre del flujo">
+    <span class="spacer"></span>
+    <button id="btn-events">Eventos</button>
+    <select id="example" aria-label="Cargar ejemplo"><option value="">Cargar ejemplo…</option><option value="flows/recepcion-personalizada.json">Recepción personalizada (16 nodos)</option><option value="flows/recepcion.json">Recepción simple (7 nodos)</option><option value="flows/recepcion-avanzada.json">Recepción avanzada (22 nodos)</option></select>
+    <button id="btn-load">Abrir flujo</button>
+    <button id="btn-save">Guardar flujo</button>
+    <input id="file" type="file" accept=".json" hidden>
+  </header>
+  <main>
+    <aside id="left">
+      <section>
+        <h3>Nodos</h3>
+        <ol class="steps"><li>Identifique al visitante</li><li>Diseñe qué vive cada categoría</li><li>Pase a una persona lo dudoso</li></ol>
+        <p class="hint">Arrastre al lienzo o haga clic para añadir.</p>
+        <div id="palette"></div>
+        <p class="legend"><span class="mode real">Real</span><span class="mode sim">Simulado (borde punteado)</span></p>
+      </section>
+    </aside>
+    <div id="canvas-wrap">
+      <section id="canvas" aria-label="Lienzo del flujo"><div id="world"><svg id="edges"></svg></div></section>
+      <div id="zoom"><button id="z-out" aria-label="Alejar">−</button><button id="z-fit">Ajustar</button><button id="z-in" aria-label="Acercar">+</button></div>
+    </div>
+    <aside id="right">
+      <section class="stage">
+        <div class="stage-head"><h3>Robot</h3><span class="mode sim">Simulado</span></div>
+        <select id="robot-kind" class="dark" aria-label="Robot"><option value="sim">Simulador web</option><option value="mujoco">MuJoCo (puente WebSocket)</option></select>
+        <input id="robot-url" class="dark" value="ws://localhost:8765" aria-label="URL del puente MuJoCo" hidden>
+        <p id="robot-status" class="stage-note"></p>
+        <div id="robot">
+          <div class="robot-face"><i></i><i></i></div>
+          <div id="gesture" hidden></div>
+          <div id="screen" hidden><small>Pantalla del robot</small><strong></strong><span></span></div>
+          <div id="route" hidden></div>
+          <div id="bubbles"><p class="stage-empty">Esperando una llegada</p></div>
+          <div id="choices" hidden><small>El visitante elige (simulado: pantalla táctil)</small><div></div></div>
+          <form id="ask" hidden>
+            <label for="ask-input" id="ask-label">Respuesta del visitante (simulada)</label>
+            <input id="ask-input" class="dark" autocomplete="off">
+            <div class="ask-actions"><button type="submit">Enviar</button><button type="button" id="ask-skip">No tengo</button></div>
+          </form>
+        </div>
+      </section>
+      <section>
+        <h3>Llegada</h3>
+        <div class="visitor">
+          <div class="avatar" id="avatar"></div>
+          <select id="person" aria-label="Visitante"></select>
+        </div>
+        <p class="hint" id="face-in"></p>
+        <button id="btn-run" class="primary"><svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>Ejecutar llegada</button>
+        <p class="hint" id="truth"></p>
+      </section>
+      <section>
+        <div class="stage-head"><h3>Avisos y aprobaciones</h3><span class="mode sim">Simulado</span></div>
+        <ul id="inbox"><li class="hint">Sin avisos.</li></ul>
+      </section>
+      <section>
+        <h3>Nodo seleccionado</h3>
+        <div id="inspector" class="hint">Haga clic en un nodo para configurarlo.</div>
+      </section>
+      <section>
+        <div class="stage-head"><h3>Registro</h3><span class="mode real">Real</span></div>
+        <ol id="log"></ol>
+      </section>
+    </aside>
+  </main>
+  <dialog id="events-dialog"></dialog>
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>

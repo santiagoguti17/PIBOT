@@ -1,0 +1,80 @@
+{
+  "name": "N Club",
+  "events": [
+    {
+      "id": "e1",
+      "name": "Cumpleaños de Valeria",
+      "type": "Fiesta",
+      "place": "Terraza, piso 4",
+      "active": true,
+      "codes": [
+        {
+          "code": "FIESTA-7K2",
+          "role": "Invitado",
+          "holder": ""
+        },
+        {
+          "code": "FIESTA-9M4",
+          "role": "Invitado",
+          "holder": ""
+        }
+      ]
+    },
+    {
+      "id": "e2",
+      "name": "Remodelación del spa",
+      "type": "Trabajo",
+      "place": "Spa, piso 2",
+      "active": true,
+      "codes": [
+        {
+          "code": "OBRA-31X",
+          "role": "Trabajador externo",
+          "holder": "Cuadrilla de pintura"
+        }
+      ]
+    },
+    {
+      "id": "e3",
+      "name": "Cena de gala (ya finalizó)",
+      "type": "Fiesta",
+      "place": "Salón principal",
+      "active": false,
+      "codes": [
+        {
+          "code": "GALA-OLD",
+          "role": "Invitado",
+          "holder": ""
+        }
+      ]
+    }
+  ],
+  "registries": {
+    "Membresías": [
+      {
+        "key": "Camila Restrepo",
+        "tier": "VIP",
+        "document": "1010101010"
+      },
+      {
+        "key": "Andrés Molina",
+        "tier": "Regular",
+        "document": "2020202020"
+      },
+      {
+        "key": "Mateo Vargas",
+        "tier": "Regular",
+        "document": "3030303030"
+      }
+    ],
+    "Nómina de personal": [
+      {
+        "code": "EMP-0412",
+        "role": "Personal del club",
+        "holder": "Jorge Pineda",
+        "area": "Operaciones",
+        "document": "4040404040"
+      }
+    ]
+  }
+}

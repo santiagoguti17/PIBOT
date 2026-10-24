@@ -1,0 +1,235 @@
+{
+  "name": "Recepción personalizada",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "visitor.identify",
+      "name": "Identificar visitante",
+      "x": 24,
+      "y": 330,
+      "config": {}
+    },
+    {
+      "id": "v1",
+      "type": "robot.gesture",
+      "name": "VIP: saludo",
+      "x": 334,
+      "y": 20,
+      "config": {
+        "gesture": "saludar"
+      }
+    },
+    {
+      "id": "v2",
+      "type": "escalation.notify",
+      "name": "VIP: avisar al concierge",
+      "x": 644,
+      "y": 20,
+      "config": {
+        "to": "Concierge",
+        "message": "Llegó {{name}} (VIP). Prepare su mesa."
+      }
+    },
+    {
+      "id": "v3",
+      "type": "robot.orient",
+      "name": "VIP: orientar",
+      "x": 954,
+      "y": 20,
+      "config": {
+        "message": "Es un gusto recibirle, {{name}}. Su salón VIP está listo; le acompaño.",
+        "destination": "Salón VIP, piso 3"
+      }
+    },
+    {
+      "id": "r1",
+      "type": "robot.choose",
+      "name": "Regular: ¿qué desea hacer?",
+      "x": 334,
+      "y": 150,
+      "config": {
+        "question": "Bienvenido de nuevo, {{name}}. ¿Qué desea hacer hoy?",
+        "options": "Restaurante, Gimnasio"
+      }
+    },
+    {
+      "id": "r2",
+      "type": "robot.orient",
+      "name": "Regular: restaurante",
+      "x": 644,
+      "y": 140,
+      "config": {
+        "message": "Perfecto, le guío al restaurante.",
+        "destination": "Restaurante, piso 1"
+      }
+    },
+    {
+      "id": "r3",
+      "type": "robot.orient",
+      "name": "Regular: gimnasio",
+      "x": 644,
+      "y": 270,
+      "config": {
+        "message": "Muy bien, le guío al gimnasio.",
+        "destination": "Gimnasio, piso 2"
+      }
+    },
+    {
+      "id": "r4",
+      "type": "robot.orient",
+      "name": "Regular: sin elegir",
+      "x": 644,
+      "y": 400,
+      "config": {
+        "message": "Le guío a la zona social; allí le ayudarán.",
+        "destination": "Zona social, piso 1"
+      }
+    },
+    {
+      "id": "i1",
+      "type": "robot.show",
+      "name": "Invitado: tarjeta de bienvenida",
+      "x": 334,
+      "y": 420,
+      "config": {
+        "title": "{{event}}",
+        "text": "Lugar: {{place}}. Un anfitrión le recibirá allí."
+      }
+    },
+    {
+      "id": "i2",
+      "type": "robot.orient",
+      "name": "Invitado: orientar",
+      "x": 644,
+      "y": 540,
+      "config": {
+        "message": "Bienvenido a {{event}}. Le acompaño a {{place}}.",
+        "destination": "{{place}}"
+      }
+    },
+    {
+      "id": "t1",
+      "type": "escalation.approve",
+      "name": "Externo: aprobación del supervisor",
+      "x": 334,
+      "y": 560,
+      "config": {
+        "to": "Supervisor de obra",
+        "message": "{{name}} llega para \"{{event}}\". ¿Autoriza el ingreso?"
+      }
+    },
+    {
+      "id": "t2",
+      "type": "robot.orient",
+      "name": "Externo: orientar",
+      "x": 644,
+      "y": 680,
+      "config": {
+        "message": "Autorizado. Por seguridad ingresa por el acceso de servicio; le guío a {{place}}.",
+        "destination": "Acceso de servicio → {{place}}"
+      }
+    },
+    {
+      "id": "p1",
+      "type": "robot.orient",
+      "name": "Personal: orientar",
+      "x": 334,
+      "y": 740,
+      "config": {
+        "message": "Buen turno, {{name}}. Área: {{area}}. Le indico el camino al vestier.",
+        "destination": "Vestier de personal, sótano"
+      }
+    },
+    {
+      "id": "h1",
+      "type": "escalation.assist",
+      "name": "Pasar a recepción",
+      "x": 334,
+      "y": 880,
+      "config": {}
+    },
+    {
+      "id": "h2",
+      "type": "escalation.assist",
+      "name": "Externo: ingreso rechazado",
+      "x": 644,
+      "y": 820,
+      "config": {
+        "message": "Su ingreso no fue autorizado por el supervisor. Aviso a recepción para que le atiendan.",
+        "note": "El supervisor rechazó el ingreso de {{name}} ({{event}})."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "VIP",
+      "to": "v1"
+    },
+    {
+      "from": "v1",
+      "fromPort": "out",
+      "to": "v2"
+    },
+    {
+      "from": "v2",
+      "fromPort": "out",
+      "to": "v3"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Regular",
+      "to": "r1"
+    },
+    {
+      "from": "r1",
+      "fromPort": "Restaurante",
+      "to": "r2"
+    },
+    {
+      "from": "r1",
+      "fromPort": "Gimnasio",
+      "to": "r3"
+    },
+    {
+      "from": "r1",
+      "fromPort": "sin respuesta",
+      "to": "r4"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Invitado",
+      "to": "i1"
+    },
+    {
+      "from": "i1",
+      "fromPort": "out",
+      "to": "i2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Trabajador externo",
+      "to": "t1"
+    },
+    {
+      "from": "t1",
+      "fromPort": "aprobado",
+      "to": "t2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Personal del club",
+      "to": "p1"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Necesita ayuda",
+      "to": "h1"
+    },
+    {
+      "from": "t1",
+      "fromPort": "rechazado",
+      "to": "h2"
+    }
+  ]
+}

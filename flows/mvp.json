@@ -1,0 +1,57 @@
+{
+  "name": "MVP recepción",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "perception.face",
+      "x": 24,
+      "y": 130,
+      "config": {}
+    },
+    {
+      "id": "n2",
+      "type": "decision.switch",
+      "x": 290,
+      "y": 130,
+      "config": {
+        "field": "isMember",
+        "cases": "true,false"
+      }
+    },
+    {
+      "id": "n3",
+      "type": "robot.speak",
+      "x": 556,
+      "y": 40,
+      "config": {
+        "text": "Bienvenido de nuevo, {{name}}. Es un gusto verle."
+      }
+    },
+    {
+      "id": "n4",
+      "type": "robot.speak",
+      "x": 556,
+      "y": 230,
+      "config": {
+        "text": "Bienvenido a N Club. Un momento, voy a confirmar quién es usted."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "out",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "fromPort": "true",
+      "to": "n3"
+    },
+    {
+      "from": "n2",
+      "fromPort": "false",
+      "to": "n4"
+    }
+  ]
+}

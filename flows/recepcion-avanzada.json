@@ -1,0 +1,297 @@
+{
+  "name": "Recepción N Club",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "perception.face",
+      "x": 24,
+      "y": 450,
+      "config": {}
+    },
+    {
+      "id": "n2",
+      "type": "decision.threshold",
+      "x": 314,
+      "y": 450,
+      "config": {
+        "field": "confidence",
+        "min": "0.8"
+      }
+    },
+    {
+      "id": "n3",
+      "type": "decision.switch",
+      "x": 604,
+      "y": 330,
+      "config": {
+        "field": "isMember",
+        "cases": "true,false"
+      }
+    },
+    {
+      "id": "n4",
+      "type": "verification.lookup",
+      "x": 894,
+      "y": 70,
+      "config": {
+        "registry": "Membresías",
+        "key": "name"
+      }
+    },
+    {
+      "id": "n5",
+      "type": "decision.switch",
+      "x": 1184,
+      "y": 70,
+      "config": {
+        "field": "tier",
+        "cases": "VIP,Regular"
+      }
+    },
+    {
+      "id": "n6",
+      "type": "robot.speak",
+      "x": 1474,
+      "y": 30,
+      "config": {
+        "text": "Es un gusto recibirle, {{name}}. Su mesa y el salón VIP están listos; le acompaño."
+      }
+    },
+    {
+      "id": "n7",
+      "type": "robot.speak",
+      "x": 1474,
+      "y": 220,
+      "config": {
+        "text": "Bienvenido de nuevo, {{name}}. Le guío a la zona social."
+      }
+    },
+    {
+      "id": "n8",
+      "type": "robot.navigate",
+      "x": 1764,
+      "y": 30,
+      "config": {
+        "destination": "Salón VIP, piso 3"
+      }
+    },
+    {
+      "id": "n9",
+      "type": "robot.navigate",
+      "x": 1764,
+      "y": 220,
+      "config": {
+        "destination": "Zona social, piso 1"
+      }
+    },
+    {
+      "id": "n10",
+      "type": "verification.code",
+      "x": 894,
+      "y": 450,
+      "config": {
+        "prompt": "Bienvenido a N Club. Para orientarle, ¿me indica su código de acceso?",
+        "registries": "Eventos, Nómina de personal"
+      }
+    },
+    {
+      "id": "n11",
+      "type": "decision.switch",
+      "x": 1184,
+      "y": 450,
+      "config": {
+        "field": "role",
+        "cases": "Invitado,Trabajador externo,Personal del club"
+      }
+    },
+    {
+      "id": "n12",
+      "type": "robot.speak",
+      "x": 1474,
+      "y": 410,
+      "config": {
+        "text": "Bienvenido a {{event}}. Le esperan en {{place}}; le acompaño."
+      }
+    },
+    {
+      "id": "n13",
+      "type": "robot.speak",
+      "x": 1474,
+      "y": 590,
+      "config": {
+        "text": "Registro confirmado para el trabajo \"{{event}}\". Por seguridad ingresa por el acceso de servicio; le guío a {{place}}."
+      }
+    },
+    {
+      "id": "n14",
+      "type": "robot.speak",
+      "x": 1474,
+      "y": 770,
+      "config": {
+        "text": "Buen turno, {{holder}}. Área: {{area}}. Le indico el camino al vestier."
+      }
+    },
+    {
+      "id": "n15",
+      "type": "robot.navigate",
+      "x": 1764,
+      "y": 410,
+      "config": {
+        "destination": "{{place}}"
+      }
+    },
+    {
+      "id": "n16",
+      "type": "robot.navigate",
+      "x": 1764,
+      "y": 590,
+      "config": {
+        "destination": "Acceso de servicio → {{place}}"
+      }
+    },
+    {
+      "id": "n17",
+      "type": "robot.navigate",
+      "x": 1764,
+      "y": 770,
+      "config": {
+        "destination": "Vestier de personal, sótano"
+      }
+    },
+    {
+      "id": "n20",
+      "type": "robot.speak",
+      "x": 894,
+      "y": 770,
+      "config": {
+        "text": "No logro confirmar quién es con certeza. Aviso a recepción para que le atiendan enseguida."
+      }
+    },
+    {
+      "id": "n21",
+      "type": "escalation.notify",
+      "x": 1184,
+      "y": 790,
+      "config": {
+        "message": "Visitante sin categoría confirmada ({{reason}}). Confianza facial: {{confidence}}."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "out",
+      "to": "n2"
+    },
+    {
+      "from": "n2",
+      "fromPort": "alta",
+      "to": "n3"
+    },
+    {
+      "from": "n2",
+      "fromPort": "baja",
+      "to": "n20"
+    },
+    {
+      "from": "n3",
+      "fromPort": "true",
+      "to": "n4"
+    },
+    {
+      "from": "n3",
+      "fromPort": "false",
+      "to": "n10"
+    },
+    {
+      "from": "n4",
+      "fromPort": "encontrado",
+      "to": "n5"
+    },
+    {
+      "from": "n4",
+      "fromPort": "no encontrado",
+      "to": "n20"
+    },
+    {
+      "from": "n5",
+      "fromPort": "VIP",
+      "to": "n6"
+    },
+    {
+      "from": "n5",
+      "fromPort": "Regular",
+      "to": "n7"
+    },
+    {
+      "from": "n5",
+      "fromPort": "otro",
+      "to": "n20"
+    },
+    {
+      "from": "n6",
+      "fromPort": "out",
+      "to": "n8"
+    },
+    {
+      "from": "n7",
+      "fromPort": "out",
+      "to": "n9"
+    },
+    {
+      "from": "n10",
+      "fromPort": "válido",
+      "to": "n11"
+    },
+    {
+      "from": "n10",
+      "fromPort": "inválido",
+      "to": "n20"
+    },
+    {
+      "from": "n10",
+      "fromPort": "sin código",
+      "to": "n20"
+    },
+    {
+      "from": "n11",
+      "fromPort": "Invitado",
+      "to": "n12"
+    },
+    {
+      "from": "n11",
+      "fromPort": "Trabajador externo",
+      "to": "n13"
+    },
+    {
+      "from": "n11",
+      "fromPort": "Personal del club",
+      "to": "n14"
+    },
+    {
+      "from": "n11",
+      "fromPort": "otro",
+      "to": "n20"
+    },
+    {
+      "from": "n12",
+      "fromPort": "out",
+      "to": "n15"
+    },
+    {
+      "from": "n13",
+      "fromPort": "out",
+      "to": "n16"
+    },
+    {
+      "from": "n14",
+      "fromPort": "out",
+      "to": "n17"
+    },
+    {
+      "from": "n20",
+      "fromPort": "out",
+      "to": "n21"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+import './face.js';
+import './switch.js';
+import './speak.js';
+import './code.js';
+import './lookup.js';
+import './threshold.js';
+import './navigate.js';
+import './notify.js';
+import './identify.js';
+import './orient.js';
+import './assist.js';
+import './choose.js';
+import './show.js';
+import './gesture.js';
+import './approve.js';

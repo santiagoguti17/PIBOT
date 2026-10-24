@@ -1,0 +1,108 @@
+{
+  "name": "Recepción simple",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "visitor.identify",
+      "x": 24,
+      "y": 200,
+      "config": {},
+      "name": "Identificar visitante"
+    },
+    {
+      "id": "n2",
+      "type": "robot.orient",
+      "x": 334,
+      "y": 20,
+      "config": {
+        "message": "Es un gusto recibirle, {{name}}. Su salón VIP está listo; le acompaño.",
+        "destination": "Salón VIP, piso 3"
+      },
+      "name": "VIP"
+    },
+    {
+      "id": "n3",
+      "type": "robot.orient",
+      "x": 334,
+      "y": 155,
+      "config": {
+        "message": "Bienvenido de nuevo, {{name}}. Le guío a la zona social.",
+        "destination": "Zona social, piso 1"
+      },
+      "name": "Miembro regular"
+    },
+    {
+      "id": "n4",
+      "type": "robot.orient",
+      "x": 334,
+      "y": 290,
+      "config": {
+        "message": "Bienvenido a {{event}}. Le esperan en {{place}}; le acompaño.",
+        "destination": "{{place}}"
+      },
+      "name": "Invitado"
+    },
+    {
+      "id": "n5",
+      "type": "robot.orient",
+      "x": 334,
+      "y": 425,
+      "config": {
+        "message": "Registro confirmado para el trabajo \"{{event}}\". Por seguridad ingresa por el acceso de servicio; le guío a {{place}}.",
+        "destination": "Acceso de servicio → {{place}}"
+      },
+      "name": "Trabajador externo"
+    },
+    {
+      "id": "n6",
+      "type": "robot.orient",
+      "x": 334,
+      "y": 560,
+      "config": {
+        "message": "Buen turno, {{name}}. Área: {{area}}. Le indico el camino al vestier.",
+        "destination": "Vestier de personal, sótano"
+      },
+      "name": "Personal del club"
+    },
+    {
+      "id": "n7",
+      "type": "escalation.assist",
+      "x": 334,
+      "y": 710,
+      "config": {},
+      "name": "Pasar a recepción"
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "VIP",
+      "to": "n2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Regular",
+      "to": "n3"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Invitado",
+      "to": "n4"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Trabajador externo",
+      "to": "n5"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Personal del club",
+      "to": "n6"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Necesita ayuda",
+      "to": "n7"
+    }
+  ]
+}
