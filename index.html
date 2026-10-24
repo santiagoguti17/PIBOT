@@ -3,84 +3,189 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>PIBOT · Framework de recepción para robots</title>
+  <title>PIBOT · Recepción con robot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,650&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <header>
+<body data-view="flow">
+  <header class="topbar">
     <div class="brand">
-      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect width="28" height="28" rx="6" fill="#0f1623"/><circle cx="10" cy="13" r="3.2" fill="#67e8f9"/><circle cx="18" cy="13" r="3.2" fill="#67e8f9"/><rect x="9" y="19" width="10" height="2" rx="1" fill="#67e8f9" opacity=".55"/></svg>
-      <strong>PIBOT</strong>
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="11" fill="var(--night)"/><rect x="6" y="9" width="22" height="13" rx="6.5" fill="#1b2d26"/><circle cx="12.5" cy="15.5" r="2.6" fill="var(--eye)"/><circle cx="21.5" cy="15.5" r="2.6" fill="var(--eye)"/><rect x="13" y="25" width="8" height="2" rx="1" fill="var(--eye)" opacity=".5"/></svg>
+      <span class="wordmark">PIBOT</span>
+      <span class="club" id="club-name">N Club</span>
     </div>
-    <input id="flow-name" value="Flujo" aria-label="Nombre del flujo">
-    <span class="spacer"></span>
-    <button id="btn-events">Eventos</button>
-    <select id="example" aria-label="Cargar ejemplo"><option value="">Cargar ejemplo…</option><option value="flows/recepcion-personalizada.json">Recepción personalizada (16 nodos)</option><option value="flows/recepcion.json">Recepción simple (7 nodos)</option><option value="flows/recepcion-avanzada.json">Recepción avanzada (22 nodos)</option></select>
-    <button id="btn-load">Abrir flujo</button>
-    <button id="btn-save">Guardar flujo</button>
-    <input id="file" type="file" accept=".json" hidden>
+    <nav class="views" role="tablist" aria-label="Vistas">
+      <button role="tab" data-view="flow" aria-selected="true">Diseñar</button>
+      <button role="tab" data-view="live" aria-selected="false">En vivo</button>
+      <button role="tab" data-view="visits" aria-selected="false">Visitas</button>
+    </nav>
+    <div class="topbar-end">
+      <button id="btn-places" class="quiet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>Lugares</button>
+      <button id="btn-events" class="quiet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v15H4zM4 10h16M8 3v5M16 3v5"/></svg>Eventos</button>
+      <div class="robot-conn" id="robot-conn" data-state="sim">
+        <span class="conn-dot" aria-hidden="true"></span>
+        <select id="robot-kind" aria-label="Robot"><option value="sim">Robot simulado en la web</option><option value="mujoco">AgiBot X2 en MuJoCo</option></select>
+        <input id="robot-url" value="ws://localhost:8765" aria-label="Dirección del puente MuJoCo" spellcheck="false" hidden>
+      </div>
+    </div>
   </header>
+
+  <div id="fall-alert" class="fall-alert" role="alert" hidden>
+    <span id="fall-text">El robot está en el suelo.</span>
+    <button id="btn-standup" type="button">Levantar robot</button>
+  </div>
+
   <main>
-    <aside id="left">
-      <section>
-        <h3>Nodos</h3>
-        <ol class="steps"><li>Identifique al visitante</li><li>Diseñe qué vive cada categoría</li><li>Pase a una persona lo dudoso</li></ol>
-        <p class="hint">Arrastre al lienzo o haga clic para añadir.</p>
+    <!-- Diseñar: paleta, lienzo y panel para probar el flujo o configurar el nodo elegido -->
+    <section class="view view-flow" data-for="flow">
+      <aside id="left" aria-label="Pasos">
+        <div class="left-head">
+          <h2>Pasos</h2>
+          <p class="hint">Arrastre uno al lienzo o haga clic para añadirlo.</p>
+        </div>
         <div id="palette"></div>
-        <p class="legend"><span class="mode real">Real</span><span class="mode sim">Simulado (borde punteado)</span></p>
-      </section>
-    </aside>
-    <div id="canvas-wrap">
-      <section id="canvas" aria-label="Lienzo del flujo"><div id="world"><svg id="edges"></svg></div></section>
-      <div id="zoom"><button id="z-out" aria-label="Alejar">−</button><button id="z-fit">Ajustar</button><button id="z-in" aria-label="Acercar">+</button></div>
-    </div>
-    <aside id="right">
-      <section class="stage">
-        <div class="stage-head"><h3>Robot</h3><span class="mode sim">Simulado</span></div>
-        <select id="robot-kind" class="dark" aria-label="Robot"><option value="sim">Simulador web</option><option value="mujoco">MuJoCo (puente WebSocket)</option></select>
-        <input id="robot-url" class="dark" value="ws://localhost:8765" aria-label="URL del puente MuJoCo" hidden>
-        <p id="robot-status" class="stage-note"></p>
-        <div id="robot">
-          <div class="robot-face"><i></i><i></i></div>
-          <div id="gesture" hidden></div>
-          <div id="screen" hidden><small>Pantalla del robot</small><strong></strong><span></span></div>
-          <div id="route" hidden></div>
-          <div id="bubbles"><p class="stage-empty">Esperando una llegada</p></div>
-          <div id="choices" hidden><small>El visitante elige (simulado: pantalla táctil)</small><div></div></div>
-          <form id="ask" hidden>
-            <label for="ask-input" id="ask-label">Respuesta del visitante (simulada)</label>
-            <input id="ask-input" class="dark" autocomplete="off">
-            <div class="ask-actions"><button type="submit">Enviar</button><button type="button" id="ask-skip">No tengo</button></div>
-          </form>
+        <p class="legend"><span class="mode real">Funciona de verdad</span><span class="mode sim">Simulado: borde punteado</span></p>
+      </aside>
+
+      <div id="canvas-wrap">
+        <div class="canvas-bar">
+          <input id="flow-name" value="Flujo" aria-label="Nombre del flujo" spellcheck="false">
+          <button id="btn-wizard" class="primary-lite"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h10M17 4v6M14 7h6M18 14v6M15 17h6"/></svg>Crear con el asistente</button>
+          <button id="btn-publish" class="primary" hidden>Publicar en el robot</button>
+          <span class="spacer"></span>
+          <button id="btn-review" class="review-chip" data-state="ok" aria-haspopup="true" aria-expanded="false">Todo listo</button>
+          <details class="file-menu">
+            <summary>Archivo</summary>
+            <div class="file-pop">
+              <p class="file-title">Flujos de ejemplo</p>
+              <button type="button" data-example="flows/recepcion-conversacional.json">Recepción conversacional</button>
+              <button type="button" data-example="flows/recepcion-personalizada.json">Recepción personalizada</button>
+              <button type="button" data-example="flows/recepcion.json">Recepción simple</button>
+              <button type="button" data-example="flows/recepcion-avanzada.json">Recepción avanzada</button>
+              <hr>
+              <button type="button" id="btn-load">Abrir un archivo…</button>
+              <button type="button" id="btn-save">Descargar este flujo</button>
+              <button type="button" id="btn-clear">Empezar con el lienzo vacío</button>
+            </div>
+          </details>
+          <input id="file" type="file" accept=".json" hidden>
         </div>
-      </section>
-      <section>
-        <h3>Llegada</h3>
-        <div class="visitor">
-          <div class="avatar" id="avatar"></div>
-          <select id="person" aria-label="Visitante"></select>
+        <div id="review-pop" class="review-pop" hidden></div>
+        <section id="canvas" aria-label="Lienzo del flujo"><div id="world"><svg id="edges"></svg></div></section>
+        <div id="canvas-empty" class="canvas-empty" hidden>
+          <h2>Diga cómo recibe el robot a cada persona</h2>
+          <p>El asistente le hace tres preguntas y arma el flujo, ya conectado. Después puede afinarlo aquí.</p>
+          <div class="empty-actions">
+            <button type="button" class="primary" data-act="wizard">Crear con el asistente</button>
+            <button type="button" data-act="example">Ver un ejemplo</button>
+          </div>
+          <p class="hint">O arrastre un paso desde la izquierda.</p>
         </div>
-        <p class="hint" id="face-in"></p>
-        <button id="btn-run" class="primary"><svg class="ico" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>Ejecutar llegada</button>
-        <p class="hint" id="truth"></p>
+        <p id="canvas-tip" class="canvas-tip" hidden><span>Use el <b>+</b> de un paso para añadir lo que sigue.</span><button type="button" class="quiet" aria-label="Cerrar consejo">×</button></p>
+        <div class="canvas-tools">
+          <div class="tool-group"><button id="btn-undo" class="quiet icon-btn" aria-label="Deshacer" title="Deshacer (Ctrl+Z)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button><button id="btn-redo" class="quiet icon-btn" aria-label="Rehacer" title="Rehacer (Ctrl+Y)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button></div>
+          <div class="tool-group"><button id="btn-arrange" class="quiet" title="Acomodar los pasos en columnas">Ordenar</button></div>
+          <div id="zoom" class="tool-group"><button id="z-out" aria-label="Alejar">−</button><button id="z-fit">Ajustar</button><button id="z-in" aria-label="Acercar">+</button></div>
+        </div>
+      </div>
+
+      <aside id="side" aria-label="Probar y configurar">
+        <div class="side-tabs" role="tablist">
+          <button role="tab" data-pane="test" aria-selected="true">Probar</button>
+          <button role="tab" data-pane="node" aria-selected="false">Paso <span id="node-tab-name"></span></button>
+        </div>
+        <div class="side-pane" data-pane="test" id="slot-flow"></div>
+        <div class="side-pane" data-pane="node" hidden>
+          <div id="inspector" class="hint">Haga clic en un nodo para configurarlo.</div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- En vivo: el robot, el mapa del club y lo que pasa en recepción -->
+    <section class="view view-live" data-for="live" hidden>
+      <div class="live-robot" id="slot-live"></div>
+      <section class="panel live-map" aria-labelledby="map-title">
+        <div class="panel-head"><h2 id="map-title">Mapa del club</h2><span class="mode sim" id="map-mode">Simulado</span></div>
+        <svg id="live-map" class="pl-map live" role="img" aria-label="Mapa del club con la posición del robot"></svg>
+        <p class="map-status" id="map-status" aria-live="polite"></p>
       </section>
-      <section>
-        <div class="stage-head"><h3>Avisos y aprobaciones</h3><span class="mode sim">Simulado</span></div>
-        <ul id="inbox"><li class="hint">Sin avisos.</li></ul>
-      </section>
-      <section>
-        <h3>Nodo seleccionado</h3>
-        <div id="inspector" class="hint">Haga clic en un nodo para configurarlo.</div>
-      </section>
-      <section>
-        <div class="stage-head"><h3>Registro</h3><span class="mode real">Real</span></div>
-        <ol id="log"></ol>
-      </section>
-    </aside>
+      <div class="live-side" id="slot-live-side"></div>
+    </section>
+
+    <!-- Visitas: qué tan bien está orientando el robot -->
+    <section class="view view-visits" data-for="visits" hidden>
+      <div class="visits-wrap">
+        <div class="visits-head">
+          <div><h2>Visitas atendidas</h2><p class="hint">Cada llegada que el robot atendió en este navegador.</p></div>
+        </div>
+        <div id="visits"></div>
+      </div>
+    </section>
   </main>
+
+  <!-- Piezas que se mueven entre "Diseñar" y "En vivo" (app.js las acomoda) -->
+  <template id="parts">
+    <section class="stage" id="stage" aria-label="Robot">
+      <div class="stage-top">
+        <span class="stage-name" id="stage-name">Robot de recepción</span>
+        <label class="voice-toggle"><input type="checkbox" id="voice" checked> Voz</label>
+      </div>
+      <div id="robot">
+        <div class="visor" aria-hidden="true"><div class="eyes"><i></i><i></i></div><b class="mouth"></b></div>
+        <p id="gesture" class="gesture" hidden></p>
+        <div id="route" class="route" hidden></div>
+        <div id="screen" class="robot-screen" hidden><small>En la pantalla del robot</small><strong></strong><span></span></div>
+        <div id="bubbles" class="talk" aria-live="polite"><p class="stage-empty">Esperando a que llegue alguien. Elija quién llega y pulse Recibir al visitante.</p></div>
+        <div id="choices" class="choices" hidden>
+          <small>El visitante toca una opción en la pantalla</small><div class="choice-list"></div>
+          <form id="choose-free" hidden>
+            <input id="choose-text" autocomplete="off" placeholder="O responda con sus palabras" aria-label="Respuesta con palabras propias">
+            <button type="submit">Responder</button>
+          </form>
+          <p id="choose-note" class="stage-note" aria-live="polite"></p>
+        </div>
+        <form id="ask" class="ask" hidden>
+          <label for="ask-input" id="ask-label">Respuesta del visitante</label>
+          <input id="ask-input" autocomplete="off">
+          <div class="ask-actions"><button type="submit">Enviar</button><button type="button" id="ask-skip">No tengo</button></div>
+        </form>
+      </div>
+      <p id="robot-status" class="stage-note"></p>
+    </section>
+
+    <section class="panel arrival" id="arrival" aria-labelledby="arrival-title">
+      <h2 id="arrival-title" class="sr-only">Quién llega</h2>
+      <div class="visitor">
+        <div class="avatar" id="avatar"></div>
+        <div class="visitor-pick">
+          <label for="person">Quién llega</label>
+          <select id="person"></select>
+        </div>
+      </div>
+      <div class="face-cam" id="face-cam" hidden>
+        <video id="face-video" muted playsinline aria-label="Vista de la cámara"></video>
+        <span class="face-chip" id="face-chip" aria-live="polite">Conectando con el reconocimiento facial…</span>
+      </div>
+      <p class="visitor-facts"><span id="face-in"></span><span id="truth"></span></p>
+      <button id="btn-run" class="primary"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l12-7.5z"/></svg><span>Recibir al visitante</span></button>
+    </section>
+
+    <section class="panel" id="inbox-panel" aria-labelledby="inbox-title">
+      <div class="panel-head"><h2 id="inbox-title">Avisos a recepción</h2><span class="mode sim">Simulado</span></div>
+      <ul id="inbox"><li class="hint">Nadie ha pedido ayuda.</li></ul>
+    </section>
+
+    <section class="panel" id="log-panel" aria-labelledby="log-title">
+      <div class="panel-head"><h2 id="log-title">Paso a paso</h2></div>
+      <ol id="log"><li class="hint">Aquí aparece cada paso del flujo al recibir a alguien.</li></ol>
+    </section>
+  </template>
+
+  <dialog id="wizard-dialog" class="wizard-dialog"></dialog>
   <dialog id="events-dialog"></dialog>
+  <dialog id="places-dialog"></dialog>
   <script type="module" src="src/ui/app.js"></script>
 </body>
 </html>

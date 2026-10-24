@@ -1,0 +1,344 @@
+{
+  "name": "Recepción conversacional",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "visitor.identify",
+      "name": "Identificar visitante",
+      "x": 24,
+      "y": 380,
+      "config": {}
+    },
+    {
+      "id": "v1",
+      "type": "robot.gesture",
+      "name": "VIP: saludo",
+      "x": 334,
+      "y": 20,
+      "config": {
+        "gesture": "saludar"
+      }
+    },
+    {
+      "id": "v2",
+      "type": "escalation.notify",
+      "name": "VIP: avisar al concierge",
+      "x": 644,
+      "y": 20,
+      "config": {
+        "to": "Concierge",
+        "message": "Llegó {{name}} (VIP). Prepare su mesa."
+      }
+    },
+    {
+      "id": "v3",
+      "type": "robot.serve",
+      "name": "VIP: ¿qué le apetece?",
+      "x": 954,
+      "y": 20,
+      "config": {
+        "question": "Es un gusto recibirle, {{name}}. ¿Qué le apetece hoy?",
+        "allowed": "Salón VIP, Restaurante, Spa, Gimnasio, Terraza, Zona social",
+        "message": "Con gusto, {{name}}. Le acompaño a {{place}}."
+      }
+    },
+    {
+      "id": "v4",
+      "type": "robot.orient",
+      "name": "VIP: sin elegir",
+      "x": 1264,
+      "y": 120,
+      "config": {
+        "message": "Le dejo en el Salón VIP; allí le atenderán con gusto.",
+        "destination": "Salón VIP"
+      }
+    },
+    {
+      "id": "r1",
+      "type": "robot.serve",
+      "name": "Regular: ¿qué desea hacer?",
+      "x": 334,
+      "y": 230,
+      "config": {
+        "question": "Bienvenido de nuevo, {{name}}. ¿Qué desea hacer hoy?",
+        "allowed": "Restaurante, Gimnasio, Terraza, Zona social"
+      }
+    },
+    {
+      "id": "r4",
+      "type": "robot.orient",
+      "name": "Regular: sin elegir",
+      "x": 644,
+      "y": 330,
+      "config": {
+        "message": "Le guío a la zona social; allí le ayudarán.",
+        "destination": "Zona social, piso 1"
+      }
+    },
+    {
+      "id": "i1",
+      "type": "robot.show",
+      "name": "Invitado: tarjeta de bienvenida",
+      "x": 334,
+      "y": 470,
+      "config": {
+        "title": "{{event}}",
+        "text": "Lugar: {{place}}. Un anfitrión le recibirá allí."
+      }
+    },
+    {
+      "id": "i2",
+      "type": "robot.serve",
+      "name": "Invitado: ¿a dónde le llevo?",
+      "x": 644,
+      "y": 470,
+      "config": {
+        "question": "Bienvenido a {{event}}. ¿Le acompaño a {{place}} o prefiere ir a otro lugar?",
+        "allowed": "{{place}}, Zona social, Restaurante",
+        "message": "Con gusto, le acompaño a {{place}}."
+      }
+    },
+    {
+      "id": "i3",
+      "type": "robot.orient",
+      "name": "Invitado: sin elegir",
+      "x": 954,
+      "y": 520,
+      "config": {
+        "message": "Le acompaño a {{place}}; allí le recibe un anfitrión.",
+        "destination": "{{place}}"
+      }
+    },
+    {
+      "id": "t1",
+      "type": "escalation.approve",
+      "name": "Externo: aprobación del supervisor",
+      "x": 334,
+      "y": 700,
+      "config": {
+        "to": "Supervisor de obra",
+        "message": "{{name}} llega para \"{{event}}\". ¿Autoriza el ingreso?"
+      }
+    },
+    {
+      "id": "t3",
+      "type": "robot.choose",
+      "name": "Externo: ¿le acompaño?",
+      "x": 644,
+      "y": 700,
+      "config": {
+        "question": "Autorizado. Por seguridad se ingresa por el acceso de servicio. ¿Le acompaño hasta {{place}} o ya conoce el camino?",
+        "options": "Acompáñeme, Conozco el camino",
+        "hints": "Acompáñeme: sí, por favor, no sé dónde queda, guíeme\nConozco el camino: no hace falta, ya he venido, sé dónde es"
+      }
+    },
+    {
+      "id": "t2",
+      "type": "robot.orient",
+      "name": "Externo: orientar",
+      "x": 954,
+      "y": 680,
+      "config": {
+        "message": "Perfecto, le guío por el acceso de servicio hasta {{place}}.",
+        "destination": "Acceso de servicio → {{place}}"
+      }
+    },
+    {
+      "id": "t4",
+      "type": "robot.orient",
+      "name": "Externo: conoce el camino",
+      "x": 954,
+      "y": 800,
+      "config": {
+        "message": "Perfecto. Recuerde entrar por el acceso de servicio y registrar sus herramientas al salir.",
+        "destination": ""
+      }
+    },
+    {
+      "id": "h2",
+      "type": "escalation.assist",
+      "name": "Externo: ingreso rechazado",
+      "x": 644,
+      "y": 860,
+      "config": {
+        "message": "Su ingreso no fue autorizado por el supervisor. Aviso a recepción para que le atiendan.",
+        "note": "El supervisor rechazó el ingreso de {{name}} ({{event}})."
+      }
+    },
+    {
+      "id": "p0",
+      "type": "robot.choose",
+      "name": "Personal: ¿necesita algo?",
+      "x": 334,
+      "y": 960,
+      "config": {
+        "question": "Buen turno, {{name}}. ¿Le acompaño al vestier o necesita algo más?",
+        "options": "Ir al vestier, Ya conozco el camino, Hablar con recepción",
+        "hints": "Ir al vestier: cambiarme, dejar mis cosas, el vestier, los casilleros\nYa conozco el camino: no gracias, voy directo, ya sé\nHablar con recepción: necesito hablar con alguien, tengo un problema"
+      }
+    },
+    {
+      "id": "p1",
+      "type": "robot.orient",
+      "name": "Personal: orientar",
+      "x": 644,
+      "y": 980,
+      "config": {
+        "message": "Listo. Hoy le esperan en {{area}}. Le acompaño al vestier.",
+        "destination": "Vestier de personal, sótano"
+      }
+    },
+    {
+      "id": "p2",
+      "type": "robot.orient",
+      "name": "Personal: va directo",
+      "x": 954,
+      "y": 1000,
+      "config": {
+        "message": "Perfecto. Hoy le esperan en {{area}}. ¡Buen turno!",
+        "destination": ""
+      }
+    },
+    {
+      "id": "h1",
+      "type": "escalation.assist",
+      "name": "Pasar a recepción",
+      "x": 334,
+      "y": 1180,
+      "config": {}
+    },
+    {
+      "id": "h3",
+      "type": "escalation.assist",
+      "name": "Pidió hablar con una persona",
+      "x": 1264,
+      "y": 520,
+      "config": {
+        "message": "Claro, ya le aviso a recepción para que alguien le atienda enseguida.",
+        "note": "{{name}} pidió hablar con una persona."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "VIP",
+      "to": "v1"
+    },
+    {
+      "from": "v1",
+      "fromPort": "out",
+      "to": "v2"
+    },
+    {
+      "from": "v2",
+      "fromPort": "out",
+      "to": "v3"
+    },
+    {
+      "from": "v3",
+      "fromPort": "sin respuesta",
+      "to": "v4"
+    },
+    {
+      "from": "v3",
+      "fromPort": "pide una persona",
+      "to": "h3"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Regular",
+      "to": "r1"
+    },
+    {
+      "from": "r1",
+      "fromPort": "sin respuesta",
+      "to": "r4"
+    },
+    {
+      "from": "r1",
+      "fromPort": "pide una persona",
+      "to": "h3"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Invitado",
+      "to": "i1"
+    },
+    {
+      "from": "i1",
+      "fromPort": "out",
+      "to": "i2"
+    },
+    {
+      "from": "i2",
+      "fromPort": "sin respuesta",
+      "to": "i3"
+    },
+    {
+      "from": "i2",
+      "fromPort": "pide una persona",
+      "to": "h3"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Trabajador externo",
+      "to": "t1"
+    },
+    {
+      "from": "t1",
+      "fromPort": "aprobado",
+      "to": "t3"
+    },
+    {
+      "from": "t1",
+      "fromPort": "rechazado",
+      "to": "h2"
+    },
+    {
+      "from": "t3",
+      "fromPort": "Acompáñeme",
+      "to": "t2"
+    },
+    {
+      "from": "t3",
+      "fromPort": "Conozco el camino",
+      "to": "t4"
+    },
+    {
+      "from": "t3",
+      "fromPort": "sin respuesta",
+      "to": "t2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Personal del club",
+      "to": "p0"
+    },
+    {
+      "from": "p0",
+      "fromPort": "Ir al vestier",
+      "to": "p1"
+    },
+    {
+      "from": "p0",
+      "fromPort": "Ya conozco el camino",
+      "to": "p2"
+    },
+    {
+      "from": "p0",
+      "fromPort": "Hablar con recepción",
+      "to": "h3"
+    },
+    {
+      "from": "p0",
+      "fromPort": "sin respuesta",
+      "to": "p1"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Necesita ayuda",
+      "to": "h1"
+    }
+  ]
+}

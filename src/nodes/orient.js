@@ -10,7 +10,8 @@ registerNode({
   help: 'El robot saluda con un mensaje y, si hay destino, lo acompaña hasta allí. Puede usar {{name}}, {{event}}, {{place}}, {{area}}.',
   config: [
     { key: 'message', label: 'Qué dice el robot', type: 'textarea' },
-    { key: 'destination', label: 'A dónde lo guía (opcional)', type: 'text' },
+    { key: 'destination', label: 'A dónde lo guía (opcional)', type: 'text',
+      suggest: (ws) => (ws.places ?? []).map((p) => p.name) },
   ],
   defaults: { message: 'Bienvenido.', destination: '' },
   async run({ robot, vars }, cfg) {

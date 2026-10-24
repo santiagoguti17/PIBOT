@@ -1,10 +1,20 @@
 import { getNode, listNodes } from '../core/registry.js';
 import { icon } from './icons.js';
 import { getMethod, WHEN } from '../identify/methods.js';
+import { COL, estimateHeight, layoutFlow } from '../core/layout.js';
+import { VARS, preview } from './vars.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const GROUP_COLORS = { 'Percepción': '#0e7490', 'Decisión': '#b45309', 'Acciones del robot': '#15803d', 'Verificación': '#4338ca', 'Escalamiento': '#be123c' };
+const GROUP_COLORS = { 'Percepción': '#2a7f8c', 'Decisión': '#a8741c', 'Acciones del robot': '#1f7a4d', 'Verificación': '#4458a8', 'Escalamiento': '#b4322a' };
 export const groupColor = (g) => GROUP_COLORS[g] ?? '#64748b';
+// Cómo se llama cada grupo en la paleta, en palabras del club
+const GROUP_NAMES = { 'Verificación': 'Reconocer a quien llega', 'Acciones del robot': 'Lo que hace el robot', 'Decisión': 'Decidir',
+  'Escalamiento': 'Pedir ayuda a una persona', 'Percepción': 'Percepción' };
+// Las etiquetas y ayudas de los nodos explican los {{datos}}; en el inspector eso lo resuelven los botones bajo cada texto
+const plainLabel = (s) => String(s).replace(/\s*\([^)]*\{\{[^)]*\)/g, '').replace(/\s*\{\{\w+\}\} permitido/g, '');
+const plainHelp = (s) => String(s ?? '').replace(/\s*Puede usar \{\{[^.]*\./g, ' Para poner datos del visitante, como su nombre, use los botones bajo cada texto.');
+// Campos de texto donde se pueden poner datos del visitante ({{name}}...)
+const TEXT_FIELDS = ['message', 'text', 'question', 'title', 'note', 'bye', 'denied'];
 
 // Editor visual de flujos: nodos arrastrables, conexiones, inspector de configuración.
 export class Editor {
@@ -19,6 +29,9 @@ export class Editor {
     this.results = {};
     this.taken = new Set();
     this.onChange = () => {};
+    this.onSelect = () => {}; // la app muestra el inspector al elegir un nodo
+    this.onAddAfter = () => {}; // + de una salida libre: la app pregunta qué paso sigue
+    this.previewVars = {}; // con qué datos se muestra cómo sonará lo que dice el robot
     this.buildPalette();
     this.bindCanvas();
   }
@@ -46,7 +59,7 @@ export class Editor {
     defs.filter((d) => d.level === 'basic').forEach((d) => (basic[d.group] ??= []).push(d));
     const ORDER = ['Verificación', 'Acciones del robot', 'Decisión', 'Escalamiento'];
     for (const [g, ds] of Object.entries(basic).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b))) {
-      const box = document.createElement('div'); box.className = 'pal-group'; box.innerHTML = `<b>${g}</b>`;
+      const box = document.createElement('div'); box.className = 'pal-group'; box.innerHTML = `<b>${GROUP_NAMES[g] ?? g}</b>`;
       ds.forEach((d) => box.append(item(d))); this.paletteEl.append(box);
     }
     const adv = document.createElement('details'); adv.className = 'pal-adv';
@@ -60,12 +73,43 @@ export class Editor {
     this.paletteEl.append(adv);
   }
 
-  addNode(type, x, y) {
-    const n = Math.max(0, ...this.flow.nodes.map((n) => +n.id.slice(1))) + 1;
-    const node = { id: 'n' + n, type, x, y, config: { ...getNode(type).defaults } };
+  newNode(type, x, y) {
+    const n = Math.max(0, ...this.flow.nodes.map((n) => +String(n.id).replace(/\D/g, '') || 0)) + 1;
+    const node = { id: 'n' + n, type, x, y, config: structuredClone(getNode(type).defaults) };
     this.flow.nodes.push(node);
+    return node;
+  }
+
+  addNode(type, x, y) {
+    const node = this.newNode(type, x, y);
     this.select({ kind: 'node', ref: node });
     this.render(); this.onChange();
+  }
+
+  portsOf(node) { const def = getNode(node.type); return def ? def.ports({ ...def.defaults, ...node.config }) : []; }
+  heightOf(node) { return this.canvas.querySelector(`.node[data-id="${node.id}"]`)?.offsetHeight || estimateHeight(this.portsOf(node)); }
+
+  // El paso que sigue a una salida: queda a su derecha, a la altura de la salida, sin taparse con otro, y conectado
+  addNodeAfter(from, port, type) {
+    const x = from.x + COL;
+    let y = from.y + 40 + Math.max(0, this.portsOf(from).indexOf(port)) * 27;
+    const h = estimateHeight(getNode(type).ports({ ...getNode(type).defaults }));
+    const clash = () => this.flow.nodes.some((n) => Math.abs(n.x - x) < 240 && y < n.y + this.heightOf(n) + 16 && n.y < y + h + 16);
+    while (clash()) y += 24;
+    const node = this.newNode(type, x, y);
+    this.flow.edges = this.flow.edges.filter((e) => !(e.from === from.id && e.fromPort === port));
+    this.flow.edges.push({ from: from.id, fromPort: port, to: node.id });
+    this.select({ kind: 'node', ref: node });
+    this.onChange();
+    requestAnimationFrame(() => this.reveal(node.id));
+    return node;
+  }
+
+  // Botón "Ordenar": columnas de izquierda a derecha, cada paso a la altura de la salida que lo lleva
+  arrange() {
+    layoutFlow(this.flow, { heightOf: (n) => this.heightOf(n), portsOf: (n) => this.portsOf(n) });
+    this.render(); this.onChange();
+    requestAnimationFrame(() => this.fit());
   }
 
   // ---- render ----
@@ -78,7 +122,7 @@ export class Editor {
   nodeEl(node) {
     const def = getNode(node.type);
     const el = document.createElement('div');
-    el.className = 'node'; el.dataset.id = node.id; el.style.setProperty('--c', groupColor(def?.group));
+    el.className = 'node'; el.dataset.id = node.id; el.dataset.type = node.type; el.style.setProperty('--c', groupColor(def?.group));
     el.style.left = node.x + 'px'; el.style.top = node.y + 'px';
     if (this.selected?.ref === node) el.classList.add('selected');
     if (this.status[node.id]) el.classList.add(this.status[node.id]);
@@ -92,6 +136,15 @@ export class Editor {
     for (const port of def?.ports({ ...def.defaults, ...node.config }) ?? []) {
       const row = document.createElement('div'); row.className = 'out-row';
       row.innerHTML = `${port === 'out' ? 'siguiente' : port}<span class="port out" data-node="${node.id}" data-port="${port}"></span>`;
+      if (!this.flow.edges.some((e) => e.from === node.id && e.fromPort === port)) {
+        const add = document.createElement('button');
+        add.type = 'button'; add.className = 'port-add'; add.textContent = '+';
+        add.title = port === 'out' ? 'Añadir el paso siguiente' : `Añadir qué pasa si: ${port}`;
+        add.setAttribute('aria-label', add.title);
+        add.onmousedown = (e) => e.stopPropagation();
+        add.onclick = (e) => { e.stopPropagation(); this.onAddAfter(node, port, add); };
+        row.append(add);
+      }
       el.append(row);
     }
     const res = document.createElement('div'); res.className = 'node-result'; res.textContent = this.results[node.id] ?? '';
@@ -164,20 +217,26 @@ export class Editor {
     this.canvas.addEventListener('mousedown', (e) => { if (e.target === this.canvas || e.target === this.world || e.target === this.svg) this.select(null); });
     addEventListener('keydown', (e) => {
       if (!['Delete', 'Backspace'].includes(e.key) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || !this.selected) return;
-      const { kind, ref } = this.selected;
-      if (kind === 'edge') this.flow.edges = this.flow.edges.filter((x) => x !== ref);
-      else {
-        this.flow.nodes = this.flow.nodes.filter((x) => x !== ref);
-        this.flow.edges = this.flow.edges.filter((x) => x.from !== ref.id && x.to !== ref.id);
-      }
-      this.select(null); this.render(); this.onChange();
+      if (document.querySelector('dialog[open]')) return;
+      this.deleteSelected();
     });
+  }
+
+  deleteSelected() {
+    if (!this.selected) return;
+    const { kind, ref } = this.selected;
+    if (kind === 'edge') this.flow.edges = this.flow.edges.filter((x) => x !== ref);
+    else {
+      this.flow.nodes = this.flow.nodes.filter((x) => x !== ref);
+      this.flow.edges = this.flow.edges.filter((x) => x.from !== ref.id && x.to !== ref.id);
+    }
+    this.select(null); this.onChange();
   }
 
   select(sel) {
     this.selected = sel;
     this.render(); this.renderInspector();
-    if (sel?.kind === 'node') this.inspectorEl.scrollIntoView({ block: 'nearest' });
+    this.onSelect(sel);
   }
 
   // ---- zoom ----
@@ -187,25 +246,34 @@ export class Editor {
     if (!els.length) return this.setZoom(1);
     const w = Math.max(...this.flow.nodes.map((n) => n.x)) + 250;
     const h = Math.max(...els.map((el) => el.offsetTop + el.offsetHeight)) + 30;
-    this.setZoom(Math.max(0.5, Math.min(1, (this.canvas.clientWidth - 16) / w, (this.canvas.clientHeight - 16) / h)));
+    this.setZoom(Math.max(0.4, Math.min(1, (this.canvas.clientWidth - 16) / w, (this.canvas.clientHeight - 16) / h)));
     this.canvas.scrollTo(0, 0);
   }
 
   // ---- inspector ----
   renderInspector() {
     const el = this.inspectorEl;
-    if (this.selected?.kind !== 'node') { el.className = 'hint'; el.textContent = 'Haga clic en un nodo para configurarlo. Supr borra el nodo o la conexión seleccionada.'; return; }
+    if (this.selected?.kind === 'edge') {
+      const { from, fromPort, to } = this.selected.ref, name = (id) => {
+        const n = this.flow.nodes.find((x) => x.id === id); return n?.name || getNode(n?.type)?.label || id;
+      };
+      el.className = ''; el.innerHTML = '<p class="node-help"></p><button type="button" class="danger-lite">Borrar esta conexión</button>';
+      el.querySelector('p').textContent = `Después de «${name(from)}»${fromPort === 'out' ? '' : ` (si: ${fromPort})`} sigue «${name(to)}».`;
+      el.querySelector('button').onclick = () => this.deleteSelected();
+      return;
+    }
+    if (this.selected?.kind !== 'node') { el.className = 'hint'; el.textContent = 'Haga clic en un paso del lienzo para configurarlo, o en una flecha para borrarla.'; return; }
     const node = this.selected.ref, def = getNode(node.type);
-    el.className = ''; el.innerHTML = `<p class="node-help">${def.help ?? ''}</p>`;
+    el.className = ''; el.innerHTML = `<p class="node-help">${plainHelp(def.help)}</p>`;
     const nameWrap = document.createElement('div'); nameWrap.className = 'field';
-    nameWrap.innerHTML = '<label>Nombre del nodo</label>';
+    nameWrap.innerHTML = '<label>Nombre del paso</label>';
     const nameIn = document.createElement('input'); nameIn.value = node.name ?? ''; nameIn.placeholder = def.label;
     nameIn.oninput = () => { node.name = nameIn.value; this.canvas.querySelector(`.node[data-id="${node.id}"] .title`).textContent = nameIn.value || def.label; this.onChange(); };
     nameWrap.append(nameIn); el.append(nameWrap);
     for (const f of def.config) {
       if (f.type === 'methods') { el.append(this.methodsEditor(node, def)); continue; }
       const wrap = document.createElement('div'); wrap.className = 'field';
-      wrap.innerHTML = `<label>${f.label}</label>`;
+      wrap.innerHTML = `<label>${plainLabel(f.label)}</label>`;
       const val = node.config[f.key] ?? def.defaults[f.key] ?? '';
       let input;
       if (f.type === 'select') {
@@ -213,16 +281,69 @@ export class Editor {
         (typeof f.options === 'function' ? f.options(this.workspace) : f.options).forEach((o) => input.add(new Option(o, o, false, o === val)));
       } else {
         input = document.createElement(f.type === 'textarea' ? 'textarea' : 'input'); input.value = val;
+        if (f.suggest) { // sugerencias al escribir (p. ej. los lugares del club en "A dónde lo guía")
+          const list = document.createElement('datalist'); list.id = `sug-${node.id}-${f.key}`;
+          f.suggest(this.workspace).forEach((s) => list.append(new Option(s)));
+          input.setAttribute('list', list.id); wrap.append(list);
+        }
       }
-      input.oninput = () => { node.config[f.key] = input.value; this.onChange(); };
+      const extra = f.type === 'select' ? null : this.fieldHelpers(node, f, input);
+      input.oninput = () => { node.config[f.key] = input.value; extra?.update(); this.onChange(); };
       input.onchange = () => {
         node.config[f.key] = input.value;
         const ports = def.ports({ ...def.defaults, ...node.config });
         this.flow.edges = this.flow.edges.filter((x) => x.from !== node.id || ports.includes(x.fromPort));
         this.render(); this.onChange();
       };
-      wrap.append(input); el.append(wrap);
+      wrap.append(input);
+      if (extra) wrap.append(extra.el);
+      el.append(wrap);
     }
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'danger-lite'; del.textContent = 'Borrar este paso';
+    del.onclick = () => this.deleteSelected();
+    el.append(del);
+  }
+
+  // Ayudas bajo un campo: botones para poner datos del visitante y cómo sonará, o los lugares del club para elegir
+  fieldHelpers(node, f, input) {
+    const box = document.createElement('div'); box.className = 'field-help';
+    const set = (v) => { input.value = v; node.config[f.key] = v; update(); this.onChange(); };
+    let update = () => {};
+    if (TEXT_FIELDS.includes(f.key)) {
+      const chips = document.createElement('div'); chips.className = 'var-chips';
+      const own = f.key === 'denied' ? [['{{requested}}', 'Lo que pidió'], ['{{allowed}}', 'Lugares permitidos']] : [];
+      [...own, ...VARS].forEach(([v, label]) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'var-chip'; b.textContent = label;
+        b.title = `Insertar ${v}`;
+        b.onclick = () => {
+          const at = input.selectionStart ?? input.value.length;
+          set(input.value.slice(0, at) + v + input.value.slice(input.selectionEnd ?? at));
+          input.focus(); input.setSelectionRange(at + v.length, at + v.length);
+        };
+        chips.append(b);
+      });
+      const say = document.createElement('p'); say.className = 'say-preview';
+      update = () => {
+        say.hidden = !/\{\{\w+\}\}/.test(input.value);
+        say.textContent = `Así sonaría con ${this.previewVars.name ?? 'el visitante elegido'}: «${preview(input.value, this.previewVars)}»`;
+      };
+      box.append(chips, say);
+    } else if (f.suggest) { // lugares del club: uno para "A dónde lo guía", varios (se prenden y apagan) para "Lugares permitidos"
+      const many = f.key === 'allowed', chips = document.createElement('div'); chips.className = 'var-chips place-chips';
+      const list = () => input.value.split(',').map((s) => s.trim()).filter(Boolean);
+      update = () => chips.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', many ? list().includes(b.textContent) : input.value.trim() === b.textContent));
+      f.suggest(this.workspace).filter((p) => p !== 'Recepción' || !many).forEach((p) => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'var-chip'; b.textContent = p;
+        b.onclick = () => {
+          if (!many) return set(input.value.trim() === p ? '' : p);
+          set((list().includes(p) ? list().filter((x) => x !== p) : [...list(), p]).join(', '));
+        };
+        chips.append(b);
+      });
+      box.append(chips);
+    } else return null;
+    update();
+    return { el: box, update };
   }
 
   // Editor de "formas de identificar": activar, reordenar, cuándo usar cada una y qué dice el robot.
@@ -282,6 +403,14 @@ export class Editor {
       .map(([k, v]) => `${k}: ${k === 'confidence' ? Math.round(v * 100) + ' %' : v}`);
     if (port !== 'out') parts.push(`salida: ${port}`);
     return parts.join(' · ') || 'Completado';
+  }
+  // Lleva a la vista el nodo que se está ejecutando, si quedó fuera del lienzo visible
+  reveal(id) {
+    const node = this.flow.nodes.find((n) => n.id === id), el = this.canvas.querySelector(`.node[data-id="${id}"]`);
+    if (!node || !el) return;
+    const z = this.zoom, c = this.canvas, x = node.x * z, y = node.y * z, w = el.offsetWidth * z, h = el.offsetHeight * z;
+    const inside = x >= c.scrollLeft && y >= c.scrollTop && x + w <= c.scrollLeft + c.clientWidth && y + h <= c.scrollTop + c.clientHeight;
+    if (!inside) c.scrollTo({ left: x + w / 2 - c.clientWidth / 2, top: y + h / 2 - c.clientHeight / 2, behavior: 'smooth' });
   }
   markEdge(edge) { this.taken.add(this.flow.edges.find((e) => e.from === edge.from && e.fromPort === edge.fromPort)); this.drawEdges(); }
 }

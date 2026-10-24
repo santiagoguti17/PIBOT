@@ -10,6 +10,7 @@ export function openEvents(dialog, ws, { onChange, onReset }) {
         <header><h2>Eventos y códigos de acceso</h2><button value="close" aria-label="Cerrar">Cerrar</button></header>
         <p class="hint">Quien llega a un evento no es reconocido por la cámara: el robot le pide el código que recibió. Un evento desactivado invalida sus códigos.</p>
         <datalist id="roles"><option>Invitado</option><option>Trabajador externo</option></datalist>
+        <datalist id="event-places">${(ws.places ?? []).map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist>
         ${(ws.events ?? []).map((ev, i) => `
           <fieldset data-ev="${i}">
             <div class="ev-row">
@@ -17,7 +18,7 @@ export function openEvents(dialog, ws, { onChange, onReset }) {
               <select data-f="type" aria-label="Tipo">${TYPES.map((t) => `<option ${t === ev.type ? 'selected' : ''}>${t}</option>`).join('')}</select>
             </div>
             <div class="ev-row">
-              <input data-f="place" value="${esc(ev.place)}" aria-label="Lugar" placeholder="Lugar al que se guía">
+              <input data-f="place" list="event-places" value="${esc(ev.place)}" aria-label="Lugar" placeholder="Lugar al que se guía">
               <label class="chk"><input type="checkbox" data-f="active" ${ev.active !== false ? 'checked' : ''}> Vigente</label>
             </div>
             ${(ev.codes ?? []).map((c, j) => `
