@@ -41,5 +41,10 @@ check(v.port === 'Invitado' && !v.asked.includes('name') && v.routes.at(-1)?.sta
 v = await visit(demo, { name: 'Pedro Colado', category: 'guest' }, { choice: 'Vengo a un evento', code: 'FIESTA-27' });
 check(v.port === 'Necesita ayuda' && /No encuentro su nombre en la lista/.test(v.said), 'demostración: reconocido, pero no está en la lista del evento');
 
+v = await visit(demo, { name: 'Adriana Galbán', category: 'guest' }, { choice: 'Sí, a las 5 pm' });
+check(v.port === 'VIP' && /entrenar en el gimnasio/.test(v.said), 'la lista del club manda: en Supabase dice invitada, en Membresías es VIP');
+v = await visit(demo, { name: 'Fermín Escalona', category: 'member_vip' }, { choice: 'Soy del personal del club', document: '5050505050' });
+check(v.port === 'Personal del club', 'VIP en Supabase pero no en Membresías: sigue con su carné y queda como personal');
+
 console.log(fails ? `${fails} fallos` : 'todos correctos');
 process.exit(fails ? 1 : 0);

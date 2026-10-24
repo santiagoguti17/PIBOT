@@ -100,9 +100,10 @@ async function keepConnected() {
 }
 
 // ---- Escuchar al visitante ----
-async function listen(seconds) {
+// context: lo que se espera oír (las opciones o los códigos del club), para que Whisper lo escriba igual
+async function listen(seconds, context = '') {
   if (!robot?.can('listen')) { await sleep(seconds * 1000); return ''; }
-  const r = await robot.send('listen', { timeout: seconds }, (seconds + 40) * 1000).catch(() => null);
+  const r = await robot.send('listen', { timeout: seconds, context }, (seconds + 40) * 1000).catch(() => null);
   const text = r?.text ?? '';
   if (text) broadcast({ type: 'heard', text });
   return text;
@@ -113,7 +114,7 @@ async function voiceChoose(question, options, interpret, hints = {}, understand 
   const human = askHuman('choose', { question, options }, 60000);
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
-      const heard = await Promise.race([listen(10), human.promise.then((v) => ({ human: v }))]);
+      const heard = await Promise.race([listen(10, `Opciones: ${joinEs(understand)}.`), human.promise.then((v) => ({ human: v }))]);
       if (heard?.human !== undefined) return heard.human;
       if (heard) {
         let option = sayOption(heard, understand, hints) ?? (interpret ? await interpret(heard).catch(() => null) : null);
@@ -128,9 +129,10 @@ async function voiceChoose(question, options, interpret, hints = {}, understand 
 
 // El código también puede mostrarse como QR a la cámara: gana lo que llegue primero, voz o QR
 async function hearOrScan(seconds, kind) {
-  if (kind !== 'code' || !eyes?.can('scan_code')) return { heard: await listen(seconds) };
+  const context = kind === 'code' ? `Códigos de acceso: ${knownCodes(workspace).join(', ')}.` : '';
+  if (kind !== 'code' || !eyes?.can('scan_code')) return { heard: await listen(seconds, context) };
   const scan = eyes.send('scan_code', { timeout: seconds }, (seconds + 10) * 1000).then((r) => r?.text || '').catch(() => '');
-  const voice = listen(seconds);
+  const voice = listen(seconds, context);
   const first = await Promise.race([scan.then((qr) => (qr ? { qr } : scan.then(() => null))), voice.then((heard) => (heard ? { heard } : null))])
     ?? await Promise.all([scan, voice]).then(([qr, heard]) => (qr ? { qr } : { heard }));
   await body.send('stop_listening', {}).catch(() => {}); // que la otra búsqueda no siga ocupando al robot

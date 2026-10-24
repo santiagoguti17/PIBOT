@@ -49,9 +49,9 @@ const FACE_STATES = {
   invalid_image: ['sin cámara', 'no pudo leer la foto'],
   not_ready: ['sin cámara', 'el servicio todavía no tiene las personas registradas'],
 };
-// La cara dice quién es. Si es miembro (su categoría es una de la lista de miembros), la categoría sale de su registro:
-// cara + lista, como con la cámara simulada. Si no lo es (invitado, personal, trabajador), la cara sola no basta, igual
-// que en el club: se sigue como con un no miembro y se le pide su código o su carné, pero ya se sabe su nombre.
+// La cara dice quién es. Si está en la lista de miembros del club, la categoría sale de ahí (cara + lista, como con la
+// cámara simulada), aunque en Supabase tenga otra. Si no está (invitado, personal, trabajador), la cara sola no basta,
+// igual que en el club: se sigue como con un no miembro y se le pide su código o su carné, pero ya se sabe su nombre.
 async function realFace(person, workspace, state, cfg) {
   let r;
   try { r = await person.camera(); } catch (err) {
@@ -59,14 +59,14 @@ async function realFace(person, workspace, state, cfg) {
     return { reason: `reconocimiento facial no disponible: ${err.message}` };
   }
   if (r.status === 'identified' && r.person) {
-    const category = clubCategory(workspace, r.person.category);
-    const members = new Set(recordsFor(workspace, cfg.memberRegistry).map(categoryOf));
+    // La categoría la decide la lista de miembros del club, no la que tenga la persona en Supabase
+    const rec = recordsFor(workspace, cfg.memberRegistry).find((m) => same(m.key, r.person.name));
     state.cameraText = `reconoce a ${r.person.name} (similitud ${r.similarity.toFixed(2)})`;
     state.knownName = r.person.name;
-    if (!members.has(category)) { state.camera = 'no miembro'; return null; }
+    if (!rec) { state.camera = 'no miembro'; return null; }
     state.camera = 'miembro'; state.cameraSaidMember = true;
-    return { category, name: r.person.name, destination: r.person.destination ?? '', via: 'reconocimiento facial + lista de miembros',
-      similarity: +r.similarity.toFixed(2) };
+    return { category: categoryOf(rec), name: r.person.name, destination: r.person.destination ?? '',
+      via: 'reconocimiento facial + lista de miembros', similarity: +r.similarity.toFixed(2) };
   }
   const [camera, text] = FACE_STATES[r.status] ?? ['sin cámara', r.status];
   state.camera = camera; state.cameraText = text;
