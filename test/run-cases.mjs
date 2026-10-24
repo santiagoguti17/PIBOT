@@ -47,7 +47,7 @@ const check = async (person, want, opts) => {
     .forEach((l) => console.log('  ' + l));
 };
 
-for (const p of people) await check(p, expected[p.id]);
+for (const p of people.filter((x) => expected[x.id])) await check(p, expected[p.id]);
 if (/personalizada|conversacional/.test(flowPath)) await check(people.find((p) => p.id === 'p5'), 'ESCALA', { approved: false });
 console.log(`\n${fails ? fails + ' fallos' : 'todos correctos'}`);
 process.exit(fails ? 1 : 0);

@@ -11,6 +11,7 @@ import { openWizard } from './wizard.js';
 import { pickNextStep } from './next-step.js';
 import { checkFlow } from '../core/check-flow.js';
 import { FaceCamera } from '../robot/face-camera.js';
+import { mergeDefaults } from '../core/workspace.js';
 
 const $ = (id) => document.getElementById(id);
 document.body.append($('parts').content); // robot, llegada, avisos y registro: se acomodan según la vista
@@ -23,7 +24,7 @@ const defaultWorkspace = await getJSON('data/club.json');
 const stored = (k) => JSON.parse(localStorage.getItem(k) ?? 'null');
 
 let workspace = stored(WS_KEY) ?? structuredClone(defaultWorkspace);
-workspace.places ??= structuredClone(defaultWorkspace.places ?? []); // datos guardados antes de existir "Lugares"
+mergeDefaults(workspace, defaultWorkspace); // datos guardados antes de que existieran lugares, reservas, nuevos eventos...
 workspace.faceCategories ??= structuredClone(defaultWorkspace.faceCategories ?? {}); // y antes del reconocimiento facial real
 const saveWorkspace = () => localStorage.setItem(WS_KEY, JSON.stringify(workspace));
 $('club-name').textContent = workspace.name ?? defaultWorkspace.name ?? '';
@@ -332,6 +333,8 @@ const KINDS = {
   code: { label: 'Código de acceso o QR (simulado: teclado o lector)', skip: 'No tengo código', value: (p) => p.code },
   document: { label: 'Cédula o carné (simulado: lector)', skip: 'No lo traigo', value: (p) => p.document },
   name: { label: 'Nombre (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => p.name },
+  destination: { label: 'A dónde se dirige o área de trabajo (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => p.destination },
+  request: { label: 'Lo que pide el visitante (simulado: voz)', skip: 'No quiero nada', value: (p) => p.request },
 };
 const show = (el, on) => { el.hidden = !on; };
 
@@ -430,6 +433,13 @@ async function makeRobot(visit) {
   return robot;
 }
 
+// Reiniciar el día: las reservas y la hora vuelven a como empezó la demostración
+$('btn-reset-day').onclick = () => {
+  workspace.resources = structuredClone(defaultWorkspace.resources ?? []);
+  if (defaultWorkspace.clock) workspace.clock = structuredClone(defaultWorkspace.clock);
+  saveWorkspace(); $('robot-status').textContent = 'Las reservas del día volvieron a empezar.';
+};
+
 // Recibir al visitante: ejecuta el flujo con la persona elegida
 let running = false;
 $('btn-run').onclick = async () => {
@@ -479,6 +489,7 @@ $('btn-run').onclick = async () => {
       }),
     },
   });
+  saveWorkspace(); // las reservas de esta llegada las ven las siguientes
   log(res.status === 'ok' ? 'Llegada atendida' : `El flujo falló: ${res.error}`);
   robot.close?.(); // cada llegada abre su propia conexión con el puente
   recordVisit({ person: { ...person, name: res.vars?.name || person.name }, res, ...visit, seconds: (performance.now() - t0) / 1000 });
@@ -508,7 +519,7 @@ function watchRobot(first) {
   $('person').closest('.visitor').hidden = true; $('truth').hidden = true; $('face-cam').hidden = true;
   $('face-in').textContent = 'El robot recibe solo a quien se acerque a su cámara. Con el botón, lo hace ahora mismo.';
   $('bubbles').querySelector('.stage-empty').textContent = 'Esperando a que alguien se acerque al robot.';
-  $('btn-publish').hidden = false;
+  $('btn-publish').hidden = false; $('btn-reset-day').hidden = true;
   // Lugares del robot real: su posición llega en vivo; "Guardar en el robot" publica solo los lugares
   $('btn-places').onclick = () => {
     const dialog = $('places-dialog');

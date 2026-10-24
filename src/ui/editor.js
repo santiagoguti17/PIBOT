@@ -5,11 +5,11 @@ import { COL, estimateHeight, layoutFlow } from '../core/layout.js';
 import { VARS, preview } from './vars.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-const GROUP_COLORS = { 'Percepción': '#2a7f8c', 'Decisión': '#a8741c', 'Acciones del robot': '#1f7a4d', 'Verificación': '#4458a8', 'Escalamiento': '#b4322a' };
+const GROUP_COLORS = { 'Percepción': '#2a7f8c', 'Decisión': '#a8741c', 'Acciones del robot': '#1f7a4d', 'Verificación': '#4458a8', 'Escalamiento': '#b4322a', 'Servicios': '#7a5a1c' };
 export const groupColor = (g) => GROUP_COLORS[g] ?? '#64748b';
 // Cómo se llama cada grupo en la paleta, en palabras del club
 const GROUP_NAMES = { 'Verificación': 'Reconocer a quien llega', 'Acciones del robot': 'Lo que hace el robot', 'Decisión': 'Decidir',
-  'Escalamiento': 'Pedir ayuda a una persona', 'Percepción': 'Percepción' };
+  'Escalamiento': 'Pedir ayuda a una persona', 'Percepción': 'Percepción', 'Servicios': 'Reservas y agenda' };
 // Las etiquetas y ayudas de los nodos explican los {{datos}}; en el inspector eso lo resuelven los botones bajo cada texto
 const plainLabel = (s) => String(s).replace(/\s*\([^)]*\{\{[^)]*\)/g, '').replace(/\s*\{\{\w+\}\} permitido/g, '');
 const plainHelp = (s) => String(s ?? '').replace(/\s*Puede usar \{\{[^.]*\./g, ' Para poner datos del visitante, como su nombre, use los botones bajo cada texto.');
@@ -57,7 +57,7 @@ export class Editor {
     const defs = listNodes();
     const basic = {};
     defs.filter((d) => d.level === 'basic').forEach((d) => (basic[d.group] ??= []).push(d));
-    const ORDER = ['Verificación', 'Acciones del robot', 'Decisión', 'Escalamiento'];
+    const ORDER = ['Verificación', 'Acciones del robot', 'Servicios', 'Decisión', 'Escalamiento'];
     for (const [g, ds] of Object.entries(basic).sort(([a], [b]) => ORDER.indexOf(a) - ORDER.indexOf(b))) {
       const box = document.createElement('div'); box.className = 'pal-group'; box.innerHTML = `<b>${GROUP_NAMES[g] ?? g}</b>`;
       ds.forEach((d) => box.append(item(d))); this.paletteEl.append(box);
