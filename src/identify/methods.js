@@ -94,7 +94,7 @@ registerMethod({
 
 registerMethod({
   id: 'code',
-  label: 'Código de acceso o QR',
+  label: 'Código de acceso',
   askable: true,
   defaultPrompt: 'Bienvenido. Para orientarle, ¿me indica su código de acceso?',
   async run({ robot, workspace }, cfg, state, row) {

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import '../src/nodes/index.js';
 import { runFlow } from '../src/core/engine.js';
 import { MujocoBridgeRobot } from '../src/robot/mujoco-bridge.js';
-import { alnum, closestCode, contradicts, joinEs, knownCodes, outsideOptions, sayOption, spokenAnswer } from '../src/core/spoken.js';
+import { contradicts, joinEs, knownCodes, outsideOptions, sayOption, spokenAnswer } from '../src/core/spoken.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.resolve(process.env.PIBOT_DATA ?? path.join(ROOT, 'robot-data'));
@@ -127,34 +127,19 @@ async function voiceChoose(question, options, interpret, hints = {}, understand 
   } finally { human.cancel(); }
 }
 
-// El código y el carné también pueden mostrarse como QR a la cámara: gana lo que llegue primero, voz o QR
-async function hearOrScan(seconds, kind) {
-  const context = kind === 'code' ? `Códigos de acceso: ${knownCodes(workspace).join(', ')}.` : '';
-  if (!['code', 'document'].includes(kind) || !eyes?.can('scan_code')) return { heard: await listen(seconds, context) };
-  const scan = eyes.send('scan_code', { timeout: seconds }, (seconds + 10) * 1000).then((r) => r?.text || '').catch(() => '');
-  const voice = listen(seconds, context);
-  const first = await Promise.race([scan.then((qr) => (qr ? { qr } : scan.then(() => null))), voice.then((heard) => (heard ? { heard } : null))])
-    ?? await Promise.all([scan, voice]).then(([qr, heard]) => (qr ? { qr } : { heard }));
-  await body.send('stop_listening', {}).catch(() => {}); // que la otra búsqueda no siga ocupando al robot
-  await Promise.allSettled([scan, voice]);
-  return first;
-}
-
 async function voiceAsk(kind) {
   const human = askHuman('ask', { kind }, 45000);
   try {
     for (let attempt = 0; attempt < 2; attempt++) {
-      const got = await Promise.race([hearOrScan(10, kind), human.promise.then((v) => ({ human: v }))]);
+      // Como en la simulación: lo que diga en voz alta (o lo que alguien escriba por él en la página)
+      const context = kind === 'code' ? `Códigos de acceso: ${knownCodes(workspace).join(', ')}.` : '';
+      const got = await Promise.race([listen(10, context).then((heard) => ({ heard })), human.promise.then((v) => ({ human: v }))]);
       if (got?.human !== undefined) return got.human || null;
-      if (got?.qr) {
-        broadcast({ type: 'heard', text: `QR: ${got.qr}` });
-        return kind === 'document' ? got.qr.replace(/\D/g, '') : closestCode(alnum(got.qr), knownCodes(workspace)) ?? got.qr;
-      }
       const heard = got?.heard;
       if (!heard) { if (attempt === 0) await robot.speak('¿Perdón? No le escuché.'); continue; }
       const answer = spokenAnswer(heard, kind, workspace);
       if (!answer.unknown) return answer.value;
-      if (attempt === 0) await robot.speak(kind === 'code' ? 'No encontré ese código. ¿Me lo repite, o me muestra el código QR?' : '¿Me lo repite, por favor?');
+      if (attempt === 0) await robot.speak(kind === 'code' ? 'No encontré ese código. ¿Me lo repite?' : '¿Me lo repite, por favor?');
     }
     return null;
   } finally { human.cancel(); }

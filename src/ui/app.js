@@ -323,7 +323,7 @@ $('btn-standup').onclick = async () => {
 
 // Cómo se simula cada forma de respuesta del visitante: qué se le muestra y qué "trae" cada persona del dataset.
 const KINDS = {
-  code: { label: 'Código de acceso o QR (simulado: teclado o lector)', skip: 'No tengo código', value: (p) => p.code },
+  code: { label: 'Código de acceso (simulado: teclado)', skip: 'No tengo código', value: (p) => p.code },
   document: { label: 'Cédula o carné (simulado: lector)', skip: 'No lo traigo', value: (p) => p.document },
   name: { label: 'Nombre (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => (p.camera ? '' : p.name) },
   destination: { label: 'A dónde se dirige o área de trabajo (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => p.destination },
