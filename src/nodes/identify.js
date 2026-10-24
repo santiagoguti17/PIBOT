@@ -48,10 +48,11 @@ registerNode({
       if (!method || !whenOk(row.when, state.camera, state.purpose)) continue;
       const r = await method.run(ctx, cfg, state, { ...row, prompt: row.prompt || method.defaultPrompt });
       if (r?.reason) state.reasons.push(r.reason);
+      if (r?.tell) state.tell = r.tell; // lo que se le puede explicar al visitante si al final no pasa
       if (!r?.category) continue;
       if (!cats.includes(r.category)) { state.reasons.push(`categoría desconocida: ${r.category}`); continue; }
       return { port: r.category, data: { camera: state.cameraText, ...r } };
     }
-    return { port: HELP, data: { camera: state.cameraText, reason: state.reasons.at(-1) ?? 'ninguna forma de identificar activa' } };
+    return { port: HELP, data: { camera: state.cameraText, reason: state.reasons.at(-1) ?? 'ninguna forma de identificar activa', tell: state.tell ?? '' } };
   },
 });

@@ -2,20 +2,20 @@ import { registerNode } from '../core/registry.js';
 import { fillTemplate } from '../core/engine.js';
 import { list } from '../identify/methods.js';
 import {
-  book, findPerson, findResource, fmtTime, freeSlots, getResource, joinEs, parseTime, resourcesOf, sentenceNot, slotStatus, whyNot, withArticle,
+  agree, book, findPerson, findResource, fmtTime, freeSlots, getResource, joinEs, parseTime, resourcesOf, sentenceNot, slotStatus, whyNot, withArticle,
 } from '../core/bookings.js';
 
 const NO = 'No, gracias';
 
-// Lo que el club sabe de la costumbre de un miembro ({ habit: { resource, time } } en su registro): el robot la tiene
-// en cuenta, y si el horario no se puede, propone reprogramar.
+// Lo que el club sabe de la costumbre de un miembro ({ habit: { resource, time, what } } en su registro; what: "entrenar en"):
+// el robot la tiene en cuenta, y si el horario no se puede, propone reprogramar.
 registerNode({
   type: 'booking.habit',
   level: 'basic',
   icon: 'clock',
   label: 'Su reserva habitual',
   group: 'Servicios',
-  help: 'Revisa la costumbre del miembro (por ejemplo, tenis a las 3 pm). Si el horario está libre, lo confirma; si no, le explica por qué y le propone otro horario para reprogramarlo.',
+  help: 'Revisa la costumbre del miembro (por ejemplo, el gimnasio a las 3 pm). Si el horario está libre, lo confirma; si no, le explica por qué y le propone otro horario para reprogramarlo.',
   config: [
     { key: 'registry', label: 'Lista de miembros', type: 'text' },
     { key: 'ask', label: 'Qué pregunta para reprogramar ({{time}} = horario propuesto)', type: 'text' },
@@ -29,20 +29,20 @@ registerNode({
     const res = habit && getResource(workspace, habit.resource);
     if (!res) return { port: 'sin hábito' };
     const name = vars.name, first = String(name).split(' ')[0], st = slotStatus(res, habit.time), place = res.place ?? res.name;
-    const usual = `${withArticle(res)} a las ${fmtTime(habit.time)}`;
+    const usual = `${withArticle(res)} a las ${fmtTime(habit.time)}`, likes = `${habit.what ?? 'usar'} ${usual}`;
 
     if (st.state === 'free') {
       book(res, habit.time, name, vars.category);
-      await robot.speak(`${first}, ya tengo lista ${usual}, como le gusta.`);
+      await robot.speak(`${first}, ya tengo ${agree(res, 'lista', 'listo')} ${usual}, como le gusta.`);
       return { port: 'confirmada', data: { resource: res.name, time: fmtTime(habit.time), place } };
     }
     const alt = freeSlots(res).find((t) => t > habit.time) ?? freeSlots(res)[0];
     if (!alt) {
-      await robot.speak(`${first}, sé que le gusta jugar en ${usual}, pero hoy ${whyNot(st)} y ya no quedan más horarios.`);
+      await robot.speak(`${first}, sé que le gusta ${likes}, pero hoy ${whyNot(st, res)} y ya no quedan más horarios.`);
       return { port: 'sin horario', data: { resource: res.name } };
     }
     const yes = `Sí, a las ${fmtTime(alt)}`;
-    await robot.speak(`${first}, sé que le gusta jugar en ${usual}. Lamentablemente hoy no se puede a esa hora: ${whyNot(st)}.`);
+    await robot.speak(`${first}, sé que le gusta ${likes}. Lamentablemente hoy no se puede a esa hora: ${whyNot(st, res)}.`);
     const answer = await robot.choose(fillTemplate(cfg.ask, { time: fmtTime(alt) }), [yes, NO], {
       hints: { [yes]: 'sí, dale, está bien, perfecto, de acuerdo, claro, listo, ok', [NO]: 'no, mejor no, déjelo así, otro día, cancelar' },
     });
@@ -51,12 +51,12 @@ registerNode({
       return { port: 'no quiso', data: { resource: res.name } };
     }
     book(res, alt, name, vars.category);
-    await robot.speak(`Listo, ${first}: queda reservada ${withArticle(res)} a las ${fmtTime(alt)} a su nombre.`);
+    await robot.speak(`Listo, ${first}: queda ${agree(res, 'reservada', 'reservado')} ${withArticle(res)} a las ${fmtTime(alt)} a su nombre.`);
     return { port: 'reprogramada', data: { resource: res.name, time: fmtTime(alt), place } };
   },
 });
 
-// El visitante dice qué quiere reservar y a qué hora ("quiero tenis hoy a las 5 pm"). El robot revisa las reservas del día:
+// El visitante dice qué quiere reservar y a qué hora ("quiero el gimnasio hoy a las 5 pm"). El robot revisa las reservas del día:
 // si está libre, reserva; si no, explica por qué y ofrece otros horarios u otras opciones.
 registerNode({
   type: 'booking.request',
@@ -79,7 +79,7 @@ registerNode({
     const done = (port, res, time) => ({ port, data: { resource: res.name, time: fmtTime(time), place: res.place ?? res.name } });
     const confirm = async (res, time) => {
       book(res, time, name, vars.category);
-      await robot.speak(`Listo: ${withArticle(res)} queda reservada hoy a las ${fmtTime(time)} a nombre de ${name}.`);
+      await robot.speak(`Listo: ${withArticle(res)} queda ${agree(res, 'reservada', 'reservado')} hoy a las ${fmtTime(time)} a nombre de ${name}.`);
     };
     const pickTime = async (res, times) => {
       const labels = times.map(fmtTime), a = await robot.choose('¿A qué hora le sirve?', [...labels, NO]);

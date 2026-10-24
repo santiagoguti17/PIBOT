@@ -24,10 +24,10 @@
     <div class="topbar-end">
       <button id="btn-places" class="quiet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-12a7 7 0 0 0-14 0c0 5.7 7 12 7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>Lugares</button>
       <button id="btn-events" class="quiet"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v15H4zM4 10h16M8 3v5M16 3v5"/></svg>Eventos</button>
-      <div class="robot-conn" id="robot-conn" data-state="sim">
+      <div class="robot-conn" id="robot-conn" data-state="connecting">
         <span class="conn-dot" aria-hidden="true"></span>
-        <select id="robot-kind" aria-label="Robot"><option value="sim">Robot simulado en la web</option><option value="mujoco">AgiBot X2 en MuJoCo</option></select>
-        <input id="robot-url" value="ws://localhost:8765" aria-label="Dirección del puente MuJoCo" spellcheck="false" hidden>
+        <select id="robot-kind" aria-label="Robot"><option value="mujoco">AgiBot X2 en MuJoCo</option></select>
+        <input id="robot-url" value="ws://localhost:8765" aria-label="Dirección del puente MuJoCo" spellcheck="false">
       </div>
     </div>
   </header>
@@ -131,7 +131,10 @@
     <section class="stage" id="stage" aria-label="Robot">
       <div class="stage-top">
         <span class="stage-name" id="stage-name">Robot de recepción</span>
-        <label class="voice-toggle"><input type="checkbox" id="voice" checked> Voz</label>
+        <div class="stage-toggles">
+          <label class="voice-toggle" title="El robot dice en voz alta lo que habla"><input type="checkbox" id="voice" checked> Voz</label>
+          <label class="voice-toggle" title="El robot escucha lo que le responden por el micrófono de este equipo"><input type="checkbox" id="mic"> Micrófono</label>
+        </div>
       </div>
       <div id="robot">
         <div class="visor" aria-hidden="true"><div class="eyes"><i></i><i></i></div><b class="mouth"></b></div>
@@ -139,6 +142,7 @@
         <div id="route" class="route" hidden></div>
         <div id="screen" class="robot-screen" hidden><small>En la pantalla del robot</small><strong></strong><span></span></div>
         <div id="bubbles" class="talk" aria-live="polite"><p class="stage-empty">Esperando a que llegue alguien. Elija quién llega y pulse Recibir al visitante.</p></div>
+        <div id="listening" class="listening" hidden aria-live="polite"><i aria-hidden="true"></i><span></span></div>
         <div id="choices" class="choices" hidden>
           <small>El visitante toca una opción en la pantalla</small><div class="choice-list"></div>
           <form id="choose-free" hidden>
@@ -151,9 +155,11 @@
           <label for="ask-input" id="ask-label">Respuesta del visitante</label>
           <input id="ask-input" autocomplete="off">
           <div class="ask-actions"><button type="submit">Enviar</button><button type="button" id="ask-skip">No tengo</button></div>
+          <p id="ask-note" class="stage-note" aria-live="polite"></p>
         </form>
       </div>
       <p id="robot-status" class="stage-note"></p>
+      <p id="voice-note" class="stage-note" aria-live="polite"></p>
     </section>
 
     <section class="panel arrival" id="arrival" aria-labelledby="arrival-title">

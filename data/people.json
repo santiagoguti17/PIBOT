@@ -2,7 +2,7 @@
   {
     "id": "d1",
     "name": "Adriana Galbán",
-    "truth": "VIP (juega tenis a las 3 pm)",
+    "truth": "VIP (entrena en el gimnasio a las 3 pm)",
     "face": {
       "isMember": true,
       "confidence": 0.96
@@ -14,14 +14,14 @@
   {
     "id": "d2",
     "name": "Santiago Urrego",
-    "truth": "Miembro regular (quiere tenis a las 5 pm)",
+    "truth": "Miembro regular (quiere el gimnasio a las 5 pm)",
     "face": {
       "isMember": true,
       "confidence": 0.93
     },
-    "request": "Quiero reservar tenis para hoy a las 5 pm",
+    "request": "Quiero reservar el gimnasio para hoy a las 5 pm",
     "choices": [
-      "Cancha de pádel"
+      "Clase de yoga"
     ]
   },
   {
@@ -32,7 +32,7 @@
       "isMember": false,
       "confidence": 0.9
     },
-    "code": "FIESTA-7K2",
+    "code": "FIESTA-27",
     "destination": "La fiesta de cumpleaños en la terraza",
     "choices": [
       "Vengo a un evento"
@@ -54,13 +54,13 @@
   {
     "id": "d5",
     "name": "Santiago Gutiérrez",
-    "truth": "Trabajador externo (reparación de la cancha)",
+    "truth": "Trabajador externo (mantenimiento de las máquinas del gimnasio)",
     "face": {
       "isMember": false,
       "confidence": 0.91
     },
-    "code": "X67",
-    "destination": "Cancha de tenis",
+    "code": "OBRA-54",
+    "destination": "Gimnasio",
     "choices": [
       "Vengo a realizar un trabajo"
     ]
@@ -92,7 +92,7 @@
       "isMember": false,
       "confidence": 0.91
     },
-    "code": "FIESTA-7K2"
+    "code": "FIESTA-27"
   },
   {
     "id": "p4",
@@ -102,7 +102,7 @@
       "isMember": false,
       "confidence": 0.93
     },
-    "code": "EMP-0412",
+    "code": "PERSONAL-41",
     "document": "4040404040"
   },
   {
@@ -113,7 +113,7 @@
       "isMember": false,
       "confidence": 0.92
     },
-    "code": "OBRA-31X"
+    "code": "OBRA-31"
   },
   {
     "id": "p6",
@@ -128,7 +128,7 @@
     "id": "p7",
     "name": "Nadia Torres",
     "truth": "No registrada (código inválido)",
-    "code": "ZZZ-000",
+    "code": "FIESTA-99",
     "face": {
       "isMember": false,
       "confidence": 0.9

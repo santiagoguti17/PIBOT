@@ -28,29 +28,37 @@ async function receive(workspace, p) {
 let fails = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'OK   ' : 'FALLA'} ${msg}`); if (!ok) fails++; };
 const fresh = () => read('../data/club.json');
-const tenis = (ws) => ws.resources.find((r) => r.name === 'Cancha de tenis');
+const gym = (ws) => ws.resources.find((r) => r.name === 'Gimnasio');
 
 const ws = fresh();
 
-// 1. VIP: su tenis de las 3 pm no se puede (mantenimiento); acepta las 5 pm
+// 0. Todo pasa en los lugares del lobby de MuJoCo, y las historias se cruzan: el mantenimiento que mueve a la VIP es el
+//    trabajo del técnico, y el parte del día habla de él y de la fiesta del invitado
+const places = ws.places.map((p) => p.name);
+check(ws.resources.every((r) => places.includes(r.place)) && ws.events.every((e) => places.some((p) => e.place.startsWith(p))),
+  '0. las reservas y los eventos son en lugares que ya existen en el lobby de MuJoCo');
+const work = ws.events.find((e) => e.codes.some((c) => c.code === person('Santiago Gutiérrez').code));
+check(work.place === gym(ws).place && gym(ws).blocks.some((b) => /mantenimiento/.test(b.reason)), '0. el técnico viene a arreglar lo que la VIP no puede usar');
+
+// 1. VIP: su gimnasio de las 3 pm no se puede (mantenimiento de las máquinas); acepta las 5 pm
 let r = await receive(ws, person('Adriana Galbán'));
 check(r.res.trace[0].port === 'VIP', '1. Adriana se reconoce como VIP');
-check(/le gusta jugar en la cancha de tenis a las 3 pm/.test(r.said) && /mantenimiento de la cancha/.test(r.said), '1. el robot conoce su hábito y le dice que hay mantenimiento');
+check(/le gusta entrenar en el gimnasio a las 3 pm/.test(r.said) && /mantenimiento de las máquinas/.test(r.said), '1. el robot conoce su hábito y le dice que hay mantenimiento');
 check(/¿Le reprogramo a las 5 pm\?/.test(r.said), '1. le propone reprogramar a las 5 pm');
-check(tenis(ws).bookings.some((b) => b.time === '17:00' && b.holder === 'Adriana Galbán' && b.category === 'VIP'), '1. queda reservada a las 5 pm a su nombre');
+check(gym(ws).bookings.some((b) => b.time === '17:00' && b.holder === 'Adriana Galbán' && b.category === 'VIP') && /queda reservado el gimnasio a las 5 pm/.test(r.said), '1. queda reservado a las 5 pm a su nombre');
 check(r.routes.at(-1) === 'Salón VIP', '1. mientras espera la acompaña al Salón VIP');
 
-// 2. Regular: pide tenis a las 5 pm; ya la tiene un VIP y no hay más horarios; elige pádel
+// 2. Regular: pide el gimnasio a las 5 pm; ya lo tiene la VIP y no hay más horarios; elige la clase de yoga
 r = await receive(ws, person('Santiago Urrego'));
 check(r.res.trace[0].port === 'Regular', '2. Santiago Urrego se reconoce como regular');
-check(/ya la reservó un miembro VIP/.test(r.said) && /no quedan más horarios de cancha de tenis/.test(r.said), '2. le dice que la reservó un miembro VIP y que no hay más tenis hoy');
-check(/más opciones: la cancha de pádel o la piscina/.test(r.said), '2. le ofrece dos opciones más (pádel y piscina)');
+check(/ya la reservó un miembro VIP/.test(r.said) && /no quedan más horarios de gimnasio/.test(r.said), '2. le dice que la reservó un miembro VIP y que no hay más gimnasio hoy');
+check(/más opciones: la clase de yoga o la mesa en el restaurante/.test(r.said), '2. le ofrece dos opciones más (yoga en la terraza y una mesa en el restaurante)');
 check(!/Adriana/.test(r.said), '2. no revela el nombre del miembro VIP');
-check(tenis(ws).bookings.length === 1 && ws.resources.find((x) => x.name === 'Cancha de pádel').bookings[0]?.holder === 'Santiago Urrego', '2. reserva el pádel a su nombre y el tenis sigue siendo de Adriana');
+check(gym(ws).bookings.length === 1 && ws.resources.find((x) => x.name === 'Clase de yoga').bookings[0]?.holder === 'Santiago Urrego', '2. reserva el yoga a su nombre y el gimnasio sigue siendo de Adriana');
 
 // 3. Invitado: nombre + código del evento
 r = await receive(ws, person('Rafael Salcedo'));
-check(r.res.trace[0].port === 'Invitado' && /¿Cuál es su nombre\?.*¿A dónde se dirige\?.*código de entrada/.test(r.said), '3. pregunta nombre, destino y código');
+check(r.res.trace[0].port === 'Invitado' && /código de entrada.*su nombre/.test(r.said) && !/área/.test(r.said), '3. pide el código y el nombre, nada más (el área es solo para los trabajos)');
 check(r.routes.at(-1) === 'Terraza, piso 4' && /coinciden con la lista de Cumpleaños de Valeria/.test(r.said), '3. nombre y código coinciden: lo lleva a su evento');
 let bad = person('Rafael Salcedo'); bad.name = 'Pedro Colado';
 r = await receive(ws, bad);
@@ -62,24 +70,24 @@ check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '3. nombr
 r = await receive(ws, person('Fermín Escalona'));
 check(r.res.trace[0].port === 'Personal del club' && r.res.trace[0].data.via.includes('documento'), '4. Fermín se confirma con su carné');
 check(/ya van 30 minutos/.test(r.said) && /Reunión de coordinación en Restaurante/.test(r.said), '4. sabe de su reunión y que va 30 minutos tarde');
-check(/grupo grande a la hora del almuerzo/.test(r.said) && /comida de administrativos/.test(r.said), '4. le da el parte del día');
+check(/grupo grande a la hora del almuerzo/.test(r.said) && /mantenimiento de las máquinas del gimnasio/.test(r.said) && /cumpleaños de Valeria/.test(r.said), '4. le da el parte del día, con el mantenimiento y la fiesta');
 check(r.routes.at(-1) === 'Restaurante', '4. lo acompaña al restaurante');
 
 // 5. Trabajador externo: nombre + área + código
 r = await receive(ws, person('Santiago Gutiérrez'));
-check(r.res.trace[0].port === 'Trabajador externo' && r.routes.at(-1) === 'Acceso de servicio → Cancha de tenis', '5. nombre, área y código coinciden: entra por el acceso de servicio a la cancha');
-bad = person('Santiago Gutiérrez'); bad.destination = 'Piscina';
+check(r.res.trace[0].port === 'Trabajador externo' && r.routes.at(-1) === 'Acceso de servicio → Gimnasio' && /código de entrada.*su nombre.*área/.test(r.said), '5. código, nombre y área coinciden: entra por el acceso de servicio al gimnasio');
+bad = person('Santiago Gutiérrez'); bad.destination = 'Spa';
 r = await receive(ws, bad);
-check(r.res.trace[0].port === 'Necesita ayuda' && /el trabajo es en Cancha de tenis/.test(r.res.trace[0].data.reason), '5. dice ir a otra área: no entra');
+check(r.res.trace[0].port === 'Necesita ayuda' && /el trabajo es en Gimnasio/.test(r.res.trace[0].data.reason), '5. dice ir a otra área: no entra');
 bad = person('Santiago Gutiérrez'); bad.name = 'Rafael Salcedo';
 check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '5. un nombre que no es de los trabajadores: no entra');
-bad = person('Santiago Gutiérrez'); bad.destination = 'la cancha de tenis';
-check((await receive(ws, bad)).res.trace[0].port === 'Trabajador externo', '5. «la cancha de tenis» y «cancha de tenis» son la misma área');
+bad = person('Santiago Gutiérrez'); bad.destination = 'el gimnasio';
+check((await receive(ws, bad)).res.trace[0].port === 'Trabajador externo', '5. «el gimnasio» y «Gimnasio» son la misma área');
 
 // Si se vuelve a empezar el día, Santiago Urrego sí consigue su hora... con otra persona que la tenga libre
 const day2 = fresh();
 r = await receive(day2, person('Santiago Urrego'));
-check(tenis(day2).bookings[0]?.holder === 'Santiago Urrego' && tenis(day2).bookings[0].time === '17:00', 'sin la reprogramación del VIP, Santiago Urrego consigue el tenis a las 5 pm');
+check(gym(day2).bookings[0]?.holder === 'Santiago Urrego' && gym(day2).bookings[0].time === '17:00', 'sin la reprogramación del VIP, Santiago Urrego consigue el gimnasio a las 5 pm');
 
 console.log(fails ? `\n${fails} fallos` : '\ntodos correctos');
 process.exit(fails ? 1 : 0);

@@ -1,4 +1,4 @@
-// Reservas de espacios (canchas, salas, mesas...) y la hora del día. Son funciones puras sobre el espacio de trabajo:
+// Reservas de espacios (el gimnasio, una clase, una mesa...) y la hora del día. Son funciones puras sobre el espacio de trabajo:
 //   workspace.resources = [{ name, article, place, aliases, slots: ["15:00"], blocks: [{time, reason}], bookings: [{time, holder, category}] }]
 //   workspace.clock = { now: "11:30" }  (hora simulada para la demostración; sin ella se usa la hora real)
 import { norm } from './places.js';
@@ -9,8 +9,10 @@ const words = (s) => ` ${norm(s).replace(/[^a-z0-9]+/g, ' ').trim()} `;
 export const resourcesOf = (ws) => ws.resources ?? [];
 export const getResource = (ws, name) => resourcesOf(ws).find((r) => norm(r.name) === norm(name));
 
-// "la cancha de tenis"
+// "el gimnasio", "la clase de yoga"
 export const withArticle = (r) => `${r.article ?? 'la'} ${r.name.toLowerCase()}`;
+// La palabra que concuerda con el recurso: "el gimnasio queda reservado", "la clase queda reservada"
+export const agree = (r, fem, masc) => (['el', 'los'].includes(r.article) ? masc : fem);
 
 // "17:00" → "5 pm", "09:30" → "9:30 am"
 export function fmtTime(t) {
@@ -40,7 +42,7 @@ export function parseTime(text, slots = []) {
   return null;
 }
 
-// Qué recurso quiso decir ("quiero reservar tenis" → Cancha de tenis), por su nombre o sus alias
+// Qué recurso quiso decir ("quiero entrenar" → Gimnasio), por su nombre o sus alias
 export function findResource(ws, text) {
   const said = words(text);
   return resourcesOf(ws).find((r) => [r.name, ...(r.aliases ?? [])].some((t) => said.includes(words(t))));
@@ -58,9 +60,9 @@ export const freeSlots = (res) => (res.slots ?? []).filter((t) => slotStatus(res
 export function book(res, time, holder, category) { (res.bookings ??= []).push({ time, holder, category }); }
 
 // Por qué no se puede, en palabras del robot: `whyNot` sigue a "no se puede a esa hora:", `sentenceNot` es una frase sola
-export function whyNot(st) {
+export function whyNot(st, res = {}) {
   if (st.state === 'blocked') return `hay ${st.reason}`;
-  if (st.state === 'booked') return `ya está reservada por un miembro ${st.by.category}`;
+  if (st.state === 'booked') return `ya está ${agree(res, 'reservada', 'reservado')} por un miembro ${st.by.category}`;
   return 'a esa hora no hay horario';
 }
 export function sentenceNot(st) {

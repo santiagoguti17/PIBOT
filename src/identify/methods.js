@@ -13,12 +13,19 @@ export const list = (s) => s.split(',').map((x) => x.trim()).filter(Boolean);
 const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
 const norm = (s) => String(s ?? '').trim().toUpperCase();
 
+// El nombre de un evento para decírselo al visitante, sin las notas del club entre paréntesis ("Cena de gala (ya finalizó)")
+const spokenName = (name) => String(name ?? '').replace(/\s*\([^)]*\)/g, '').trim();
+// Lo que el robot le explica al visitante cuando su código es de un evento que ya no está vigente
+const endedEvent = (name) => `Ese código es del evento «${spokenName(name)}», que ya finalizó.`;
+
 // Busca en los registros un valor (código, documento) y devuelve el registro, o una razón si no sirve.
+// tell: lo que se le puede explicar al visitante (el robot se lo dice al pasarlo a recepción).
+// Los códigos se comparan sin guiones ni espacios: "fiesta 27" es FIESTA-27.
 function findRecord(workspace, registries, field, value) {
   for (const name of registries) {
-    const rec = recordsFor(workspace, name).find((r) => r[field] != null && norm(r[field]) === value);
+    const rec = recordsFor(workspace, name).find((r) => r[field] != null && alnum(r[field]) === alnum(value));
     if (!rec) continue;
-    if (rec.active === false) return { reason: `${rec.event ?? 'registro'} no está vigente` };
+    if (rec.active === false) return { reason: `${rec.event ?? 'registro'} no está vigente`, tell: rec.event ? endedEvent(rec.event) : undefined };
     return { rec, registry: name };
   }
   return null;
@@ -42,17 +49,24 @@ const FACE_STATES = {
   invalid_image: ['sin cámara', 'no pudo leer la foto'],
   not_ready: ['sin cámara', 'el servicio todavía no tiene las personas registradas'],
 };
-async function realFace(person, workspace, state) {
+// La cara dice quién es. Si está en la lista de miembros del club, la categoría sale de ahí (cara + lista, como con la
+// cámara simulada), aunque en Supabase tenga otra. Si no está (invitado, personal, trabajador), la cara sola no basta,
+// igual que en el club: se sigue como con un no miembro y se le pide su código o su carné, pero ya se sabe su nombre.
+async function realFace(person, workspace, state, cfg) {
   let r;
   try { r = await person.camera(); } catch (err) {
     state.camera = 'sin cámara'; state.cameraText = 'sin reconocimiento facial';
     return { reason: `reconocimiento facial no disponible: ${err.message}` };
   }
   if (r.status === 'identified' && r.person) {
-    state.camera = 'miembro'; state.cameraSaidMember = true;
+    // La categoría la decide la lista de miembros del club, no la que tenga la persona en Supabase
+    const rec = recordsFor(workspace, cfg.memberRegistry).find((m) => same(m.key, r.person.name));
     state.cameraText = `reconoce a ${r.person.name} (similitud ${r.similarity.toFixed(2)})`;
-    return { category: clubCategory(workspace, r.person.category), name: r.person.name, destination: r.person.destination ?? '',
-      via: 'reconocimiento facial', similarity: +r.similarity.toFixed(2) };
+    state.knownName = r.person.name;
+    if (!rec) { state.camera = 'no miembro'; return null; }
+    state.camera = 'miembro'; state.cameraSaidMember = true;
+    return { category: categoryOf(rec), name: r.person.name, destination: r.person.destination ?? '',
+      via: 'reconocimiento facial + lista de miembros', similarity: +r.similarity.toFixed(2) };
   }
   const [camera, text] = FACE_STATES[r.status] ?? ['sin cámara', r.status];
   state.camera = camera; state.cameraText = text;
@@ -65,7 +79,7 @@ registerMethod({
   real: false,
   help: 'Con "Persona frente a la cámara", reconocimiento facial real con las personas registradas en Supabase; con un visitante del dataset, simulado (miembro / no miembro con una confianza).',
   async run({ person, workspace }, cfg, state) {
-    if (person.camera) return realFace(person, workspace, state);
+    if (person.camera) return realFace(person, workspace, state, cfg);
     const { isMember, confidence } = person.face;
     state.cameraText = `${isMember ? 'miembro' : 'no miembro'} ${Math.round(confidence * 100)} %`;
     state.cameraSaidMember = isMember;
@@ -80,17 +94,17 @@ registerMethod({
 
 registerMethod({
   id: 'code',
-  label: 'Código de acceso o QR',
+  label: 'Código de acceso',
   askable: true,
   defaultPrompt: 'Bienvenido. Para orientarle, ¿me indica su código de acceso?',
   async run({ robot, workspace }, cfg, state, row) {
     const code = norm(await robot.ask(row.prompt, { kind: 'code' }));
     if (!code) return { reason: 'sin código' };
     const hit = findRecord(workspace, list(cfg.codeRegistries), 'code', code);
-    if (!hit) return { reason: 'código no registrado' };
+    if (!hit) return { reason: 'código no registrado', tell: 'No encuentro ese código.' };
     if (hit.reason) return hit;
     const { code: _c, active: _a, holder, ...info } = hit.rec;
-    return { ...info, category: categoryOf(hit.rec), name: holder, via: hit.registry === 'Eventos' ? `evento ${hit.rec.event}` : hit.registry };
+    return { ...info, category: categoryOf(hit.rec), name: holder || state.knownName, via: hit.registry === 'Eventos' ? `evento ${hit.rec.event}` : hit.registry };
   },
 });
 
@@ -150,7 +164,7 @@ registerMethod({
 const alnum = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 const words = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 const STOP = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'en', 'al', 'a', 'zona', 'area']);
-// "cancha tenis" y "la cancha de tenis" son el mismo lugar: todas las palabras que dijo están en el nombre del lugar
+// "gimnasio" y "el gimnasio" son el mismo lugar: todas las palabras que dijo están en el nombre del lugar
 const sameArea = (said, place) => {
   const have = new Set(words(place)), mine = words(said).filter((w) => !STOP.has(w));
   return mine.length > 0 && mine.every((w) => have.has(w));
@@ -160,22 +174,26 @@ const sameArea = (said, place) => {
 // (en la lista) y el código (el del evento). Si el evento lo pide ("requireArea"), también el área a la que dice ir.
 registerMethod({
   id: 'guest',
-  label: 'Nombre, destino y código (lista del evento)',
-  help: 'El robot pregunta el nombre, a dónde se dirige y el código de entrada. Pasa solo si el nombre está en la lista del evento y el código es el de ese evento; en trabajos, el área también debe coincidir.',
+  label: 'Código y nombre (lista del evento)',
+  help: 'El robot pide el código de entrada y, con él, sabe de qué evento es. Si el evento tiene lista, pregunta el nombre (si la cámara ya lo reconoció, no) y pasa solo si está en la lista; en los trabajos que lo piden, pregunta también el área, que debe coincidir. Así no pregunta nada que no vaya a usar.',
   async run({ robot, workspace }, cfg, state, row) {
-    const name = (await robot.ask('¿Cuál es su nombre?', { kind: 'name' }))?.trim();
-    const where = (await robot.ask('¿A dónde se dirige?', { kind: 'destination' }))?.trim();
     const code = alnum(await robot.ask('¿Cuál es su código de entrada?', { kind: 'code' }));
-    if (!name || !code) return { reason: 'faltó el nombre o el código' };
+    if (!code) return { reason: 'faltó el código' };
     const event = (workspace.events ?? []).find((ev) => (ev.codes ?? []).some((c) => alnum(c.code) === code));
-    if (!event) return { reason: 'el código no es de ningún evento' };
-    if (event.active === false) return { reason: `${event.name} no está vigente` };
+    if (!event) return { reason: 'el código no es de ningún evento', tell: 'No encuentro ese código.' };
+    if (event.active === false) return { reason: `${event.name} no está vigente`, tell: endedEvent(event.name) };
+    const entry = event.codes.find((c) => alnum(c.code) === code);
+    const name = state.knownName || (event.guests || !entry.holder ? (await robot.ask('¿Me dice su nombre, por favor?', { kind: 'name' }))?.trim() : entry.holder);
+    if (!name) return { reason: 'faltó el nombre' };
     const listed = event.guests ? event.guests.find((g) => same(g, name)) : name;
-    if (!listed) return { reason: `su nombre no está en la lista de ${event.name}` };
-    if (event.requireArea && !sameArea(where, event.place)) return { reason: `dijo ir a «${where}», pero el trabajo es en ${event.place}` };
-    const role = event.codes.find((c) => alnum(c.code) === code).role;
+    if (!listed) return { reason: `su nombre no está en la lista de ${event.name}`, tell: `No encuentro su nombre en la lista de «${spokenName(event.name)}».` };
+    if (event.requireArea) {
+      const where = (await robot.ask('¿En qué área va a trabajar?', { kind: 'destination' }))?.trim();
+      if (!sameArea(where, event.place)) return { reason: `dijo ir a «${where}», pero el trabajo es en ${event.place}` };
+    }
+    const role = entry.role;
     return { category: role, name: listed, event: event.name, place: event.place, area: event.requireArea ? event.place : undefined,
-      via: `${event.name}: nombre${event.requireArea ? ', área' : ''} y código` };
+      via: `${event.name}: código${event.guests ? ' y nombre en la lista' : ''}${event.requireArea ? ' y área' : ''}` };
   },
 });
 

@@ -12,6 +12,8 @@ import { pickNextStep } from './next-step.js';
 import { checkFlow } from '../core/check-flow.js';
 import { FaceCamera } from '../robot/face-camera.js';
 import { mergeDefaults } from '../core/workspace.js';
+import { Microphone, RobotVoice } from '../robot/voice.js';
+import { askByVoice, chooseByVoice, LISTEN_S, meaningOf } from '../core/conversation.js';
 
 const $ = (id) => document.getElementById(id);
 document.body.append($('parts').content); // robot, llegada, avisos y registro: se acomodan según la vista
@@ -224,7 +226,7 @@ $('btn-places').onclick = () => {
   openPlaces(dialog, workspace, {
     onChange: () => { saveWorkspace(); editor.renderInspector(); drawLiveMap(); },
     onReset: () => { workspace.places = structuredClone(defaultWorkspace.places ?? []); saveWorkspace(); dialog.close(); $('btn-places').click(); },
-    robotUrl: $('robot-kind').value === 'mujoco' ? $('robot-url').value : null,
+    robotUrl: $('robot-url').value,
   });
 };
 
@@ -252,18 +254,14 @@ addEventListener('pointerdown', (e) => { // el menú Archivo se cierra al hacer 
   if (!$('review-pop').hidden && !$('review-pop').contains(e.target) && e.target !== $('btn-review')) $('review-pop').hidden = true;
 });
 
-// robot: simulador web o puente a MuJoCo
+// El robot es el AgiBot X2 en MuJoCo, por el mismo puente que usa el robot real: lo que se prueba aquí es lo que hará el
+// X2. Si el puente no responde, la página sigue con el robot dibujado en ella (respaldo) y lo avisa.
 const setConn = (state) => { $('robot-conn').dataset.state = state; };
-$('robot-kind').onchange = () => {
-  $('robot-url').hidden = $('robot-kind').value !== 'mujoco';
-  $('robot-status').textContent = '';
-  startMapMonitor();
-};
-$('robot-url').onchange = () => startMapMonitor();
+$('robot-url').onchange = () => { $('robot-status').textContent = ''; startMapMonitor(); };
 
-// Mapa en vivo: con MuJoCo, la posición real del robot (pedida al puente dos veces por segundo);
-// con el simulador web, el robot aparece en el lugar al que guía.
-const live = { pose: null, target: null, monitor: null, poll: null, retry: null, fallen: false };
+// Mapa en vivo: la posición real del robot en MuJoCo, pedida al puente dos veces por segundo. Con el respaldo, el
+// robot aparece en el lugar al que guía.
+const live = { pose: null, target: null, monitor: null, poll: null, retry: null, fallen: false, backup: false };
 const homePose = () => {
   const r = workspace.places.find((p) => p.name === 'Recepción');
   return { x: +r?.x || 0, y: +r?.y || 0, heading: 0 };
@@ -288,22 +286,17 @@ function showFall(p, canStandUp) {
 async function startMapMonitor() {
   clearInterval(live.poll); clearTimeout(live.retry); live.monitor?.close(); live.monitor = null;
   $('fall-alert').hidden = true; live.fallen = false;
-  if ($('robot-kind').value !== 'mujoco') {
-    setConn('sim');
-    live.pose = homePose();
-    setMapStatus(false, 'Robot simulado en la web: aparece en el lugar al que guía.');
-    drawLiveMap(); return;
-  }
   setConn('connecting');
   setMapStatus(false, 'Conectando con el robot en MuJoCo.');
   const monitor = new MujocoBridgeRobot({}, { url: $('robot-url').value });
   try { await monitor.connect(); } catch (err) {
     setConn('off');
-    setMapStatus(false, `${err.message}. Se vuelve a intentar en 5 s; revise que el puente esté corriendo (./x2 pibot).`);
+    live.pose ??= homePose(); drawLiveMap();
+    setMapStatus(false, `MuJoCo no responde (${err.message}): se vuelve a intentar en 5 s. Revise que el puente esté corriendo (./x2 pibot); mientras tanto, el robot se ve solo en esta página.`);
     live.retry = setTimeout(startMapMonitor, 5000); return;
   }
   setConn('live');
-  $('robot-kind').options[1].text = monitor.real ? 'AgiBot X2 real' : 'AgiBot X2 en MuJoCo';
+  $('robot-kind').options[0].text = monitor.real ? 'AgiBot X2 real' : 'AgiBot X2 en MuJoCo';
   if (!monitor.can('pose')) { setMapStatus(false, 'Este puente no informa la posición del robot.'); return; }
   live.monitor = monitor;
   live.poll = setInterval(async () => {
@@ -330,28 +323,64 @@ $('btn-standup').onclick = async () => {
 
 // Cómo se simula cada forma de respuesta del visitante: qué se le muestra y qué "trae" cada persona del dataset.
 const KINDS = {
-  code: { label: 'Código de acceso o QR (simulado: teclado o lector)', skip: 'No tengo código', value: (p) => p.code },
+  code: { label: 'Código de acceso (simulado: teclado)', skip: 'No tengo código', value: (p) => p.code },
   document: { label: 'Cédula o carné (simulado: lector)', skip: 'No lo traigo', value: (p) => p.document },
-  name: { label: 'Nombre (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => p.name },
+  name: { label: 'Nombre (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => (p.camera ? '' : p.name) },
   destination: { label: 'A dónde se dirige o área de trabajo (simulado: voz)', skip: 'Prefiero no decirlo', value: (p) => p.destination },
   request: { label: 'Lo que pide el visitante (simulado: voz)', skip: 'No quiero nada', value: (p) => p.request },
 };
 const show = (el, on) => { el.hidden = !on; };
 
-// Voz del robot en voz alta con el navegador (simulada: el robot real usa su propia voz)
-const VOICE_KEY = 'pibot.voice.v1';
+// La voz y el oído del robot en la simulación, con el parlante y el micrófono de este equipo: el servicio ./x2 voz
+// le da voz (Piper) y entiende lo que se le dice (Whisper). Sin el servicio, habla con la voz del navegador, si tiene
+// una en español. El robot real usa su propia voz y su micrófono.
+const VOICE_KEY = 'pibot.voice.v1', MIC_KEY = 'pibot.mic.v1';
+const robotVoice = new RobotVoice(), mic = new Microphone();
+const voiceService = { speaks: false, hears: false };
+const browserVoice = () => window.speechSynthesis?.getVoices().find((v) => v.lang.toLowerCase().startsWith('es'));
+async function checkVoice() {
+  const s = await robotVoice.status().catch(() => null);
+  Object.assign(voiceService, { speaks: !!s?.habla, hears: !!s?.listo });
+  voiceHint();
+}
+function voiceHint() {
+  $('voice-note').textContent = $('mic').checked && !voiceService.hears ? 'Para que el robot le escuche, encienda el servicio de voz: ./x2 voz.'
+    : $('voice').checked && !voiceService.speaks && !browserVoice() ? 'Este navegador no tiene voz en español: para oír al robot, encienda ./x2 voz.' : '';
+}
+window.speechSynthesis?.addEventListener('voiceschanged', voiceHint);
 $('voice').checked = localStorage.getItem(VOICE_KEY) !== 'off';
 $('voice').onchange = () => {
   localStorage.setItem(VOICE_KEY, $('voice').checked ? 'on' : 'off');
-  if (!$('voice').checked) window.speechSynthesis?.cancel();
+  if (!$('voice').checked) { window.speechSynthesis?.cancel(); robotVoice.stop(); }
+  checkVoice();
 };
-function say(text) {
-  if (!$('voice').checked || !window.speechSynthesis) return null;
-  return new Promise((resolve) => {
+$('mic').checked = localStorage.getItem(MIC_KEY) === 'on';
+$('mic').onchange = async () => {
+  localStorage.setItem(MIC_KEY, $('mic').checked ? 'on' : 'off');
+  if (!$('mic').checked) { stopListening(); mic.stop(); voiceHint(); return; }
+  try {
+    await mic.start(); // pide el permiso ahora; el micrófono se abre de verdad solo durante una visita
+    if (!running) mic.stop();
+  } catch (err) {
+    $('mic').checked = false; localStorage.setItem(MIC_KEY, 'off');
+    $('voice-note').textContent = `No se pudo usar el micrófono: ${err.name === 'NotAllowedError' ? 'el navegador no dio permiso' : err.name === 'NotFoundError' ? 'no hay ninguno conectado' : err.message}.`;
+    return;
+  }
+  checkVoice();
+};
+checkVoice();
+
+// El robot espera a terminar la frase antes de seguir: la promesa termina cuando acaba de sonar
+async function say(text) {
+  if (!$('voice').checked) return;
+  if (voiceService.speaks) {
+    try { return await robotVoice.speak(text); }
+    catch (err) { voiceService.speaks = false; $('voice-note').textContent = `Sin la voz del robot (${err.message}): se usa la del navegador.`; }
+  }
+  if (!browserVoice()) return;
+  await new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(text);
-    const voice = speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith('es'));
-    if (voice) u.voice = voice;
-    u.lang = voice?.lang ?? 'es-ES';
+    u.voice = browserVoice(); u.lang = u.voice.lang;
     // Algunos navegadores no avisan cuándo termina una frase larga: se sigue igual tras un tiempo prudente
     const timer = setTimeout(resolve, 1500 + text.length * 90);
     u.onend = u.onerror = () => { clearTimeout(timer); resolve(); };
@@ -369,19 +398,47 @@ function addBubble(text, { visitor = false } = {}) {
   $('bubbles').scrollTop = 1e6;
 }
 
+function robotSays(text) {
+  $('robot').classList.add('speaking'); setTimeout(() => $('robot').classList.remove('speaking'), 300 + text.length * 18);
+  addBubble(text);
+  return say(text);
+}
+
+// Con "Micrófono", el robot escucha por el micrófono de este equipo: una frase, pasada a texto con Whisper. Qué hacer
+// con ella (entenderla, pedir que la repita, esperar a que alguien toque la opción) es lo mismo que en el robot real:
+// src/core/conversation.js. Sin micrófono, solo responde la persona que toca o escribe.
+function stopListening() { show($('listening'), false); }
+function micListen() {
+  if (!$('mic').checked) return null;
+  return async (context, signal) => {
+    if (!voiceService.hears) await checkVoice();
+    if (!voiceService.hears || signal.aborted) return new Promise(() => {}); // sin servicio de voz: espera a la persona
+    const [dot, text] = $('listening').children;
+    text.textContent = 'Escuchando… hable ahora';
+    show($('listening'), true); $('robot').scrollTop = 1e6;
+    try {
+      const pcm = await mic.phrase({ wait: LISTEN_S * 1000, signal, onLevel: (l) => dot.style.setProperty('--level', l.toFixed(2)) });
+      if (!pcm || signal.aborted) return '';
+      text.textContent = 'Entendiendo lo que dijo…';
+      return await robotVoice.transcribe(pcm, { context });
+    } catch (err) {
+      $('voice-note').textContent = `No se pudo escuchar: ${err.message}.`;
+      return new Promise(() => {}); // el micrófono falló: espera a la persona
+    } finally {
+      stopListening();
+    }
+  };
+}
+
 // visit: lo que se anota de cada llegada para el registro de visitas (a dónde se guió)
 const robotUI = (visit = null) => ({
-  onSpeak: (t) => {
-    $('robot').classList.add('speaking'); setTimeout(() => $('robot').classList.remove('speaking'), 300 + t.length * 18);
-    addBubble(t);
-    return say(t); // el robot espera a terminar la frase antes de seguir
-  },
+  onSpeak: robotSays,
   onNavigate: (dest) => {
     visit?.routes.push(dest); show($('route'), true); $('route').textContent = `Guiando a ${dest}`;
     $('robot').classList.add('guiding');
     const place = placeFor(dest, workspace.places);
     live.target = place?.name ?? null;
-    if (place && $('robot-kind').value !== 'mujoco') live.pose = { x: +place.x, y: +place.y, heading: 0 };
+    if (place && live.backup) live.pose = { x: +place.x, y: +place.y, heading: 0 };
     drawLiveMap();
   },
   onGesture: (name) => {
@@ -392,11 +449,15 @@ const robotUI = (visit = null) => ({
     show($('screen'), true); $('screen').querySelector('strong').textContent = title; $('screen').querySelector('span').textContent = text;
   },
   // interpret (solo si el puente tiene LLM): el visitante también puede responder con sus palabras
-  onChoose: (q, options, { interpret } = {}) => new Promise((resolve) => {
+  onChoose: (q, options, { interpret, hints = {}, understand = options } = {}) => {
     const box = $('choices').querySelector('.choice-list'), free = $('choose-free'), note = $('choose-note');
-    const finish = (o, said = o) => { show($('choices'), false); addBubble(said, { visitor: true }); resolve(o); };
+    let answer;
+    const human = new Promise((r) => { answer = r; }); // tocar una opción o escribirla por el visitante
+    const tapped = (o, said = o) => { addBubble(said, { visitor: true }); answer(o); };
+    $('choices').querySelector('small').textContent = $('mic').checked ? 'El visitante responde hablando o toca una opción' : 'El visitante toca una opción en la pantalla';
+    if ($('mic').checked && !interpret) $('voice-note').textContent = 'Sin LLM, el robot solo entiende las opciones y las frases de "Cómo reconocer cada opción". Para que entienda lenguaje natural: ./x2 llm y reiniciar ./x2 pibot.';
     box.innerHTML = ''; note.textContent = '';
-    options.forEach((o) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.onclick = () => finish(o); box.append(b); });
+    options.forEach((o) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.onclick = () => tapped(o); box.append(b); });
     show(free, !!interpret);
     if (interpret) {
       $('choose-text').value = '';
@@ -404,33 +465,46 @@ const robotUI = (visit = null) => ({
         e.preventDefault();
         const text = $('choose-text').value.trim(); if (!text) return;
         note.textContent = 'Interpretando…';
-        const o = await interpret(text).catch(() => null);
-        if (o) finish(o, `«${text}» (entendido: ${o})`);
+        const o = await meaningOf(text, { understand, hints, interpret });
+        if (o) tapped(o, `«${text}» (entendido: ${o})`);
         else note.textContent = `No le entendí "${text}". Dígalo de otra forma o toque una opción.`;
       };
     }
     show($('choices'), true);
     box.querySelector('button')?.focus({ preventScroll: true });
-  }),
-  onAsk: (q, { kind = 'code' } = {}) => new Promise((resolve) => {
+    const io = { listen: micListen(), say: robotSays, human,
+      heard: (said, understood) => (understood ? addBubble(said, { visitor: true }) : (note.textContent = `No le entendí ${said}. Dígalo de otra forma o toque una opción.`)) };
+    return chooseByVoice({ options, understand, hints, interpret, io }).finally(() => { stopListening(); show($('choices'), false); });
+  },
+  onAsk: (q, { kind = 'code' } = {}) => {
     const k = KINDS[kind], form = $('ask'), input = $('ask-input');
-    $('ask-label').textContent = k.label; $('ask-skip').textContent = k.skip;
+    $('ask-label').textContent = $('mic').checked ? `${k.label.replace(/ \(simulado[^)]*\)/, '')}: dígalo en voz alta o escríbalo aquí` : k.label;
+    $('ask-skip').textContent = k.skip; $('ask-note').textContent = '';
     show(form, true); input.value = k.value(currentPerson()) ?? ''; input.focus();
-    const done = (v) => { show(form, false); addBubble(v ? v : k.skip, { visitor: true }); resolve(v); };
-    form.onsubmit = (e) => { e.preventDefault(); done(input.value); };
-    $('ask-skip').onclick = () => done(null);
-  }),
+    let answer;
+    const human = new Promise((r) => { answer = r; }); // escribirlo por el visitante, o "No tengo"
+    const typed = (v) => { addBubble(v || k.skip, { visitor: true }); answer(v || null); };
+    form.onsubmit = (e) => { e.preventDefault(); typed(input.value); };
+    $('ask-skip').onclick = () => typed(null);
+    const io = { listen: micListen(), say: robotSays, human,
+      heard: (said, understood) => (understood ? addBubble(said, { visitor: true }) : ($('ask-note').textContent = `No le entendí ${said}. Dígalo de nuevo o escríbalo.`)) };
+    return askByVoice({ kind, workspace, io }).finally(() => { stopListening(); show(form, false); });
+  },
 });
 
 async function makeRobot(visit) {
-  if ($('robot-kind').value !== 'mujoco') return new SimulatorRobot(robotUI(visit));
   const robot = new MujocoBridgeRobot(robotUI(visit), { url: $('robot-url').value, places: workspace.places });
   try {
     await robot.connect();
+    live.backup = false;
     $('robot-status').textContent = robot.llm ? 'Conectado a MuJoCo. Entiende respuestas con palabras propias.' : 'Conectado a MuJoCo.';
+    return robot;
+  } catch (err) {
+    // Respaldo: el mismo flujo con el robot dibujado en la página, sin caminar ni LLM
+    live.backup = true;
+    $('robot-status').textContent = `MuJoCo no responde (${err.message}). Respaldo: el robot se ve solo en esta página, sin caminar, y entiende solo las opciones y las frases del club.`;
+    return new SimulatorRobot(robotUI(visit));
   }
-  catch (err) { $('robot-status').textContent = `${err.message}. Se usa solo el robot simulado en la web.`; }
-  return robot;
 }
 
 // Reiniciar el día: las reservas y la hora vuelven a como empezó la demostración
@@ -447,9 +521,10 @@ $('btn-run').onclick = async () => {
   running = true; $('btn-run').disabled = true; $('btn-run').querySelector('span').textContent = 'Atendiendo…';
   if (document.body.dataset.view === 'flow') setPane('test');
   editor.clearRun();
-  window.speechSynthesis?.cancel();
+  window.speechSynthesis?.cancel(); robotVoice.stop(); stopListening();
+  if ($('voice').checked || $('mic').checked) await checkVoice();
   live.target = null;
-  if ($('robot-kind').value !== 'mujoco') live.pose = homePose();
+  if (live.backup) live.pose = homePose();
   drawLiveMap();
   $('bubbles').innerHTML = ''; $('log').innerHTML = '';
   ['route', 'ask', 'screen', 'choices', 'gesture'].forEach((id) => show($(id), false));
@@ -497,6 +572,7 @@ $('btn-run').onclick = async () => {
   live.target = null; drawLiveMap(); // el robot vuelve solo a su puesto
   $('robot').classList.remove('guiding');
   $('stage-name').textContent = 'Robot de recepción';
+  stopListening(); mic.stop(); // el micrófono solo queda abierto mientras el robot atiende a alguien
   running = false; $('btn-run').disabled = false; $('btn-run').querySelector('span').textContent = 'Recibir al visitante';
 };
 
@@ -520,6 +596,7 @@ function watchRobot(first) {
   $('face-in').textContent = 'El robot recibe solo a quien se acerque a su cámara. Con el botón, lo hace ahora mismo.';
   $('bubbles').querySelector('.stage-empty').textContent = 'Esperando a que alguien se acerque al robot.';
   $('btn-publish').hidden = false; $('btn-reset-day').hidden = true;
+  $('mic').closest('label').hidden = true; $('voice-note').textContent = ''; // el robot escucha con su propio micrófono
   // Lugares del robot real: su posición llega en vivo; "Guardar en el robot" publica solo los lugares
   $('btn-places').onclick = () => {
     const dialog = $('places-dialog');
@@ -573,7 +650,10 @@ function watchRobot(first) {
       if (document.body.dataset.view === 'flow') setPane('test');
     } else if (e.type === 'speak') {
       addBubble(e.text); $('robot').classList.add('speaking'); setTimeout(() => $('robot').classList.remove('speaking'), 300 + e.text.length * 18);
-    } else if (e.type === 'heard') addBubble(e.text, { visitor: true });
+    } else if (e.type === 'heard') { // lo que oyó el robot: entendido, como respuesta; si no, como aviso (igual que en la simulación)
+      if (e.understood === false) (!$('choices').hidden ? $('choose-note') : $('ask-note')).textContent = `No le entendí ${e.text}. Dígalo de otra forma o toque una opción.`;
+      else addBubble(e.text, { visitor: true });
+    }
     else if (e.type === 'log') logLine(e.text);
     else if (e.type === 'node') { editor.setStatus(e.id, e.status, e.info); if (e.status === 'running') editor.reveal(e.id); }
     else if (e.type === 'edge') editor.markEdge(e.edge);

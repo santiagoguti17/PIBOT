@@ -72,30 +72,6 @@
       "desc": "cambiarse, dejar las cosas, casilleros del personal",
       "kind": "vestier",
       "color": "#6e4fb8"
-    },
-    {
-      "name": "Cancha de tenis",
-      "x": 2.3,
-      "y": 2.7,
-      "desc": "jugar tenis, reservar la cancha de tenis",
-      "kind": "gimnasio",
-      "color": "#4f8f2f"
-    },
-    {
-      "name": "Cancha de pádel",
-      "x": 2.4,
-      "y": 0.7,
-      "desc": "jugar pádel, reservar la cancha de pádel",
-      "kind": "gimnasio",
-      "color": "#7a9a24"
-    },
-    {
-      "name": "Piscina",
-      "x": 2.3,
-      "y": -1.7,
-      "desc": "nadar, la piscina, hacer largos",
-      "kind": "spa",
-      "color": "#2f86c8"
     }
   ],
   "events": [
@@ -107,7 +83,7 @@
       "active": true,
       "codes": [
         {
-          "code": "FIESTA-7K2",
+          "code": "FIESTA-27",
           "role": "Invitado",
           "holder": ""
         }
@@ -127,7 +103,7 @@
       "active": true,
       "codes": [
         {
-          "code": "OBRA-31X",
+          "code": "OBRA-31",
           "role": "Trabajador externo",
           "holder": "Cuadrilla de pintura"
         }
@@ -137,11 +113,11 @@
       "id": "e3",
       "name": "Cena de gala (ya finalizó)",
       "type": "Fiesta",
-      "place": "Salón principal",
+      "place": "Restaurante",
       "active": false,
       "codes": [
         {
-          "code": "GALA-OLD",
+          "code": "GALA-15",
           "role": "Invitado",
           "holder": ""
         }
@@ -149,9 +125,9 @@
     },
     {
       "id": "e4",
-      "name": "Reparación de la cancha de tenis",
+      "name": "Mantenimiento de las máquinas del gimnasio",
       "type": "Trabajo",
-      "place": "Cancha de tenis",
+      "place": "Gimnasio",
       "active": true,
       "requireArea": true,
       "guests": [
@@ -161,7 +137,7 @@
       ],
       "codes": [
         {
-          "code": "X67",
+          "code": "OBRA-54",
           "role": "Trabajador externo",
           "holder": ""
         }
@@ -190,8 +166,9 @@
         "tier": "VIP",
         "document": "1111111111",
         "habit": {
-          "resource": "Cancha de tenis",
-          "time": "15:00"
+          "resource": "Gimnasio",
+          "time": "15:00",
+          "what": "entrenar en"
         }
       },
       {
@@ -202,14 +179,14 @@
     ],
     "Nómina de personal": [
       {
-        "code": "EMP-0412",
+        "code": "PERSONAL-41",
         "role": "Personal del club",
         "holder": "Jorge Pineda",
         "area": "Operaciones",
         "document": "4040404040"
       },
       {
-        "code": "EMP-0577",
+        "code": "PERSONAL-57",
         "role": "Personal del club",
         "holder": "Fermín Escalona",
         "area": "Administración",
@@ -237,11 +214,18 @@
   },
   "resources": [
     {
-      "name": "Cancha de tenis",
-      "article": "la",
-      "place": "Cancha de tenis",
+      "name": "Gimnasio",
+      "article": "el",
+      "place": "Gimnasio",
       "aliases": [
-        "tenis"
+        "gimnasio",
+        "gym",
+        "entrenar",
+        "entrenamiento",
+        "pesas",
+        "máquinas",
+        "maquinas",
+        "hacer ejercicio"
       ],
       "slots": [
         "15:00",
@@ -250,18 +234,18 @@
       "blocks": [
         {
           "time": "15:00",
-          "reason": "mantenimiento de la cancha"
+          "reason": "mantenimiento de las máquinas"
         }
       ],
       "bookings": []
     },
     {
-      "name": "Cancha de pádel",
+      "name": "Clase de yoga",
       "article": "la",
-      "place": "Cancha de pádel",
+      "place": "Terraza",
       "aliases": [
-        "padel",
-        "pádel"
+        "yoga",
+        "clase de yoga"
       ],
       "slots": [
         "16:00",
@@ -271,12 +255,15 @@
       "bookings": []
     },
     {
-      "name": "Piscina",
+      "name": "Mesa en el restaurante",
       "article": "la",
-      "place": "Piscina",
+      "place": "Restaurante",
       "aliases": [
-        "piscina",
-        "nadar"
+        "restaurante",
+        "una mesa",
+        "comer",
+        "almorzar",
+        "cenar"
       ],
       "slots": [
         "16:00",
@@ -290,7 +277,8 @@
   "briefings": {
     "Personal del club": [
       "Hoy hay un grupo grande a la hora del almuerzo.",
-      "A las 3 pm hay comida de administrativos."
+      "A las 3 pm llega el equipo de mantenimiento de las máquinas del gimnasio, por el acceso de servicio.",
+      "Esta noche es el cumpleaños de Valeria en la terraza."
     ]
   },
   "clock": {
