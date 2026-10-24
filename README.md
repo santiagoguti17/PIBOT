@@ -29,6 +29,7 @@ node test/build-flow.test.mjs                           # asistente "Crear flujo
 node test/spoken.test.mjs                               # respuestas habladas: opciones, códigos dictados, cédula y nombre
 node test/tell.test.mjs                                 # lo que el robot explica si no puede dejar pasar (evento finalizado, código o nombre que no están)
 node test/face.test.mjs                                 # reconocimiento facial real en los flujos: la cara sola solo basta a un miembro
+node test/robot-caras.test.mjs                          # las cinco personas de la demo en Supabase, con su categoría de allá, en el robot
 ```
 
 ## Qué incluye
