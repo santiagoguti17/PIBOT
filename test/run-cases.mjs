@@ -14,7 +14,7 @@ const flow = read(`../${flowPath}`);
 // confianza y escala al ambiguo; los demás lo resuelven con el nombre dicho (cámara dudosa + nombre).
 const base = { p1: 'Salón VIP', p3: 'Terraza', p4: 'Vestier', p5: 'Acceso de servicio', p7: 'ESCALA' };
 const expected = flowPath.includes('avanzada') ? { ...base, p2: 'Zona social', p6: 'ESCALA' }
-  : flowPath.includes('personalizada') ? { ...base, p2: 'Gimnasio', p6: 'Restaurante' }
+  : /personalizada|conversacional/.test(flowPath) ? { ...base, p2: 'Gimnasio', p6: 'Restaurante' }
   : { ...base, p2: 'Zona social', p6: 'Zona social' };
 
 function harness(person, { approved = true } = {}) {
@@ -48,6 +48,6 @@ const check = async (person, want, opts) => {
 };
 
 for (const p of people) await check(p, expected[p.id]);
-if (flowPath.includes('personalizada')) await check(people.find((p) => p.id === 'p5'), 'ESCALA', { approved: false });
+if (/personalizada|conversacional/.test(flowPath)) await check(people.find((p) => p.id === 'p5'), 'ESCALA', { approved: false });
 console.log(`\n${fails ? fails + ' fallos' : 'todos correctos'}`);
 process.exit(fails ? 1 : 0);

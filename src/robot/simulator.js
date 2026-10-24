@@ -6,8 +6,8 @@ export class SimulatorRobot {
   }
   wait(ms) { return new Promise((r) => setTimeout(r, this.speed ? ms : 0)); }
   async speak(text) {
-    this.ui.onSpeak?.(text);
-    await this.wait(300 + text.length * this.speed);
+    // Si la UI lo dice en voz alta, onSpeak devuelve una promesa y el robot espera a que termine la frase
+    await Promise.all([this.ui.onSpeak?.(text), this.wait(300 + text.length * this.speed)]);
   }
   async ask(question, opts = {}) {
     await this.speak(question);

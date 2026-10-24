@@ -10,6 +10,7 @@ import './identify.js';
 import './orient.js';
 import './assist.js';
 import './choose.js';
+import './serve.js';
 import './show.js';
 import './gesture.js';
 import './approve.js';

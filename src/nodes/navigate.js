@@ -8,7 +8,8 @@ registerNode({
   icon: 'route',
   label: 'Robot: guiar a destino',
   group: 'Acciones del robot',
-  config: [{ key: 'destination', label: 'Destino ({{variable}} permitido)', type: 'text' }],
+  config: [{ key: 'destination', label: 'Destino ({{variable}} permitido)', type: 'text',
+    suggest: (ws) => (ws.places ?? []).map((p) => p.name) }],
   defaults: { destination: 'Recepción' },
   async run({ robot, vars }, cfg) {
     await robot.navigate(fillTemplate(cfg.destination, vars));

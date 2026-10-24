@@ -1,2 +1,4 @@
 .DS_Store
 node_modules/
+# Lo que publica y registra PIBOT cuando corre en el robot (runtime/robot-runtime.mjs)
+robot-data/

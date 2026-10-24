@@ -3,7 +3,9 @@
 //   speak(text)                -> Promise                 habla
 //   ask(question, {kind})      -> Promise<string|null>    pregunta y devuelve lo que responde el visitante
 //                                                         (kind: 'code' | 'document' | 'name'; null = no respondió)
-//   choose(question, options)  -> Promise<string|null>    el visitante elige una opción en pantalla
+//   choose(question, options, {hints, understand}) -> Promise<string|null>  el visitante elige una opción en pantalla
+//                                                         (hints: cómo suele decirse cada opción, para lenguaje natural;
+//                                                          understand: opciones que se reconocen aunque no tengan botón)
 //   show({title, text})        -> Promise                 tarjeta en la pantalla del robot
 //   gesture(name)              -> Promise                 gesto: 'saludar' | 'asentir' | 'señalar'
 //   navigate(destination)      -> Promise                 guía a un destino

@@ -1,5 +1,79 @@
 {
   "name": "N Club",
+  "places": [
+    {
+      "name": "Recepción",
+      "x": 0.0,
+      "y": 0.0,
+      "desc": "la entrada, información general",
+      "kind": "recepcion",
+      "color": "#6b7570"
+    },
+    {
+      "name": "Salón VIP",
+      "x": -2.9,
+      "y": 2.4,
+      "desc": "zona exclusiva para miembros VIP, descansar, un trago, privacidad",
+      "kind": "vip",
+      "color": "#8e2b3a"
+    },
+    {
+      "name": "Zona social",
+      "x": -1.2,
+      "y": 3.3,
+      "desc": "sentarse, esperar a alguien, conversar, un café",
+      "kind": "social",
+      "color": "#4e8a5e"
+    },
+    {
+      "name": "Terraza",
+      "x": -3.5,
+      "y": 0.9,
+      "desc": "aire libre, la vista, eventos y fiestas, tomar algo afuera",
+      "kind": "terraza",
+      "color": "#2a8c88"
+    },
+    {
+      "name": "Restaurante",
+      "x": -3.4,
+      "y": -0.9,
+      "desc": "comer, desayunar, almorzar, cenar, una reserva, la carta",
+      "kind": "restaurante",
+      "color": "#c4472f"
+    },
+    {
+      "name": "Gimnasio",
+      "x": -2.5,
+      "y": -2.5,
+      "desc": "entrenar, hacer ejercicio, pesas, máquinas, una clase",
+      "kind": "gimnasio",
+      "color": "#3462b8"
+    },
+    {
+      "name": "Spa",
+      "x": -1.2,
+      "y": -3.3,
+      "desc": "masajes, sauna, relajarse, tratamientos",
+      "kind": "spa",
+      "color": "#b4507e"
+    },
+    {
+      "name": "Acceso de servicio",
+      "x": 0.6,
+      "y": -3.4,
+      "desc": "entrada de proveedores y trabajadores, entregas, mantenimiento",
+      "kind": "servicio",
+      "color": "#c8611e"
+    },
+    {
+      "name": "Vestier de personal",
+      "x": 1.7,
+      "y": -3.0,
+      "desc": "cambiarse, dejar las cosas, casilleros del personal",
+      "kind": "vestier",
+      "color": "#6e4fb8"
+    }
+  ],
   "events": [
     {
       "id": "e1",
@@ -76,5 +150,18 @@
         "document": "4040404040"
       }
     ]
+  },
+  "faceCategories": {
+    "member_vip": "VIP",
+    "vip": "VIP",
+    "member_regular": "Regular",
+    "member": "Regular",
+    "regular": "Regular",
+    "guest": "Invitado",
+    "invitado": "Invitado",
+    "external_worker": "Trabajador externo",
+    "contractor": "Trabajador externo",
+    "staff": "Personal del club",
+    "employee": "Personal del club"
   }
 }
