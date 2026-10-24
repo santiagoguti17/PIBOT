@@ -256,6 +256,15 @@ main { flex:1; min-height:0; display:flex; }
 .view-live .talk { flex:1 1 auto; min-height:90px; }
 .view-live .visor { width:184px; height:92px; border-radius:46px; margin:14px auto 18px; }
 .view-live .eyes i { width:32px; height:32px; }
+/* Con la cámara del equipo, la conversación sigue a la vista: el robot nunca queda aplastado por la vista previa,
+   que se achica, y en pantallas bajas la columna se desplaza en vez de esconder la conversación */
+.view-live .live-robot { overflow-y:auto; scrollbar-width:thin; }
+.view-live .stage { flex:1 0 auto; min-height:260px; }
+.view-live .face-cam { aspect-ratio:auto; height:clamp(96px, 17vh, 170px); flex:none; }
+@media (max-height:800px) {
+  .view-live .visor { width:132px; height:64px; border-radius:32px; margin:6px auto 10px; }
+  .view-live .eyes i { width:22px; height:22px; }
+}
 .view-live #log { max-height:none; }
 .view-live #log-panel { flex:1; min-height:0; overflow:auto; }
 .live-map { display:flex; flex-direction:column; min-height:0; }
