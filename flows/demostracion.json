@@ -16,25 +16,25 @@
           },
           {
             "id": "name",
-            "on": false,
+            "on": true,
             "when": "duda",
             "prompt": "Para estar seguro, ¿me confirma su nombre?"
           },
           {
             "id": "purpose",
-            "on": false,
+            "on": true,
             "when": "no miembro o duda",
             "prompt": "Bienvenido a N Club. ¿Qué lo trae por aquí?"
           },
           {
             "id": "document",
-            "on": false,
+            "on": true,
             "when": "personal",
             "prompt": "Muéstreme su carné del club, por favor."
           },
           {
             "id": "guest",
-            "on": false,
+            "on": true,
             "when": "evento o trabajo"
           },
           {
@@ -127,7 +127,7 @@
       "y": 398,
       "config": {
         "title": "{{event}}",
-        "text": "Reconocido en la lista del evento.\nLugar: {{place}}"
+        "text": "Nombre y código confirmados.\nLugar: {{place}}"
       }
     },
     {
@@ -137,7 +137,7 @@
       "x": 644,
       "y": 442,
       "config": {
-        "message": "Bienvenido, {{name}}. Está en la lista de {{event}}. Le acompaño a {{place}}.",
+        "message": "Bienvenido, {{name}}. Su nombre y su código coinciden con la lista de {{event}}. Le acompaño a {{place}}.",
         "destination": "{{place}}"
       }
     },
@@ -211,7 +211,7 @@
       "x": 334,
       "y": 511,
       "config": {
-        "message": "Gracias, {{name}}. Está en la orden de trabajo «{{event}}», en {{place}}. Puede ingresar; le guío por el acceso de servicio.",
+        "message": "Gracias, {{name}}. Su nombre, el área ({{place}}) y el código coinciden con la orden de trabajo «{{event}}». Puede ingresar; le guío por el acceso de servicio.",
         "destination": "Acceso de servicio → {{place}}"
       }
     },
