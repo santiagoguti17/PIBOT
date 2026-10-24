@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import '../src/nodes/index.js';
 import { runFlow } from '../src/core/engine.js';
 import { MujocoBridgeRobot } from '../src/robot/mujoco-bridge.js';
-import { contradicts, joinEs, knownCodes, outsideOptions, sayOption, spokenAnswer } from '../src/core/spoken.js';
+import { askByVoice, chooseByVoice, HUMAN_WAIT_S, LISTEN_S } from '../src/core/conversation.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.resolve(process.env.PIBOT_DATA ?? path.join(ROOT, 'robot-data'));
@@ -99,49 +99,31 @@ async function keepConnected() {
   }
 }
 
-// ---- Escuchar al visitante ----
-// context: lo que se espera oír (las opciones o los códigos del club), para que Whisper lo escriba igual
-async function listen(seconds, context = '') {
-  if (!robot?.can('listen')) { await sleep(seconds * 1000); return ''; }
-  const r = await robot.send('listen', { timeout: seconds, context }, (seconds + 40) * 1000).catch(() => null);
-  const text = r?.text ?? '';
-  if (text) broadcast({ type: 'heard', text });
-  return text;
+// ---- Escuchar al visitante: la misma conversación que la simulación (src/core/conversation.js) ----
+// Lo propio del robot: oye con su micrófono (el puente, con Whisper) y las respuestas de una persona llegan desde
+// la página. Lo que oyó se muestra en la página igual que en la simulación.
+function listenRobot(context, signal) {
+  signal.addEventListener('abort', () => body?.send('stop_listening', {}).catch(() => {}));
+  return robot.send('listen', { timeout: LISTEN_S, context }, (LISTEN_S + 40) * 1000).then((r) => r?.text ?? '', () => '');
 }
+const robotIO = (human) => ({
+  listen: robot?.can('listen') ? listenRobot : null,
+  say: (text) => robot.speak(text),
+  human: human.promise,
+  heard: (text, understood) => broadcast({ type: 'heard', text, understood }),
+});
 
-// La opción dicha tal cual o con una frase del club; si no, la interpreta el LLM entre todas las que entiende
 async function voiceChoose(question, options, interpret, hints = {}, understand = options) {
-  const human = askHuman('choose', { question, options }, 60000);
+  const human = askHuman('choose', { question, options }, HUMAN_WAIT_S * 1000);
   try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const heard = await Promise.race([listen(10, `Opciones: ${joinEs(understand)}.`), human.promise.then((v) => ({ human: v }))]);
-      if (heard?.human !== undefined) return heard.human;
-      if (heard) {
-        let option = sayOption(heard, understand, hints) ?? (interpret ? await interpret(heard).catch(() => null) : null);
-        if (option && contradicts(heard, option)) option = null; // "a las 3" no es "6 pm", aunque el LLM lo elija
-        if (option) { broadcast({ type: 'understood', option }); return option; }
-      }
-      if (attempt < 2) await robot.speak(`${!heard ? '¿Perdón?' : outsideOptions(heard, options) ? 'Eso no lo tengo disponible.' : 'No le entendí bien.'} Puede decirme: ${joinEs(options)}.`);
-    }
-    return null;
+    return await chooseByVoice({ options, understand, hints, interpret, io: robotIO(human) });
   } finally { human.cancel(); }
 }
 
 async function voiceAsk(kind) {
-  const human = askHuman('ask', { kind }, 45000);
+  const human = askHuman('ask', { kind }, HUMAN_WAIT_S * 1000);
   try {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      // Como en la simulación: lo que diga en voz alta (o lo que alguien escriba por él en la página)
-      const context = kind === 'code' ? `Códigos de acceso: ${knownCodes(workspace).join(', ')}.` : '';
-      const got = await Promise.race([listen(10, context).then((heard) => ({ heard })), human.promise.then((v) => ({ human: v }))]);
-      if (got?.human !== undefined) return got.human || null;
-      const heard = got?.heard;
-      if (!heard) { if (attempt === 0) await robot.speak('¿Perdón? No le escuché.'); continue; }
-      const answer = spokenAnswer(heard, kind, workspace);
-      if (!answer.unknown) return answer.value;
-      if (attempt === 0) await robot.speak(kind === 'code' ? 'No encontré ese código. ¿Me lo repite?' : '¿Me lo repite, por favor?');
-    }
-    return null;
+    return await askByVoice({ kind, workspace, io: robotIO(human) }) || null;
   } finally { human.cancel(); }
 }
 

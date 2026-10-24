@@ -13,7 +13,7 @@ import { checkFlow } from '../core/check-flow.js';
 import { FaceCamera } from '../robot/face-camera.js';
 import { mergeDefaults } from '../core/workspace.js';
 import { Microphone, RobotVoice } from '../robot/voice.js';
-import { contradicts, joinEs, knownCodes, norm, outsideOptions, sayOption, spokenAnswer } from '../core/spoken.js';
+import { askByVoice, chooseByVoice, LISTEN_S, meaningOf } from '../core/conversation.js';
 
 const $ = (id) => document.getElementById(id);
 document.body.append($('parts').content); // robot, llegada, avisos y registro: se acomodan según la vista
@@ -404,38 +404,31 @@ function robotSays(text) {
   return say(text);
 }
 
-// Con "Micrófono", cuando el robot pregunta escucha la respuesta y la pasa a texto. understand(texto) dice si le
-// sirve; si no, el robot pide que la repita, como el robot real. Tocar una opción o escribir corta la escucha.
-let listening = null;
-function stopListening() { listening?.abort(); listening = null; show($('listening'), false); }
-async function listenFor(understand, { tries = 3, again, context }) {
-  if (!$('mic').checked) return;
-  stopListening();
-  if (!voiceService.hears) await checkVoice();
-  if (!voiceService.hears) return;
-  const ctl = listening = new AbortController();
-  const [dot, text] = $('listening').children;
-  for (let i = 0; i < tries; i++) {
+// Con "Micrófono", el robot escucha por el micrófono de este equipo: una frase, pasada a texto con Whisper. Qué hacer
+// con ella (entenderla, pedir que la repita, esperar a que alguien toque la opción) es lo mismo que en el robot real:
+// src/core/conversation.js. Sin micrófono, solo responde la persona que toca o escribe.
+function stopListening() { show($('listening'), false); }
+function micListen() {
+  if (!$('mic').checked) return null;
+  return async (context, signal) => {
+    if (!voiceService.hears) await checkVoice();
+    if (!voiceService.hears || signal.aborted) return new Promise(() => {}); // sin servicio de voz: espera a la persona
+    const [dot, text] = $('listening').children;
     text.textContent = 'Escuchando… hable ahora';
     show($('listening'), true); $('robot').scrollTop = 1e6;
-    let heard = '';
     try {
-      const pcm = await mic.phrase({ signal: ctl.signal, onLevel: (l) => dot.style.setProperty('--level', l.toFixed(2)) });
-      if (pcm && !ctl.signal.aborted) { text.textContent = 'Entendiendo lo que dijo…'; heard = (await robotVoice.transcribe(pcm, { context })).trim(); }
+      const pcm = await mic.phrase({ wait: LISTEN_S * 1000, signal, onLevel: (l) => dot.style.setProperty('--level', l.toFixed(2)) });
+      if (!pcm || signal.aborted) return '';
+      text.textContent = 'Entendiendo lo que dijo…';
+      return await robotVoice.transcribe(pcm, { context });
     } catch (err) {
-      if (!ctl.signal.aborted) $('voice-note').textContent = `No se pudo escuchar: ${err.message}.`;
-      break;
+      $('voice-note').textContent = `No se pudo escuchar: ${err.message}.`;
+      return new Promise(() => {}); // el micrófono falló: espera a la persona
+    } finally {
+      stopListening();
     }
-    if (ctl.signal.aborted) return;
-    show($('listening'), false);
-    if (heard && await understand(heard)) return;
-    if (ctl.signal.aborted || i === tries - 1) break;
-    await robotSays(again(heard));
-    if (ctl.signal.aborted) return;
-  }
-  if (listening === ctl) stopListening();
+  };
 }
-const heardAs = (heard, value) => (norm(heard) === norm(value) ? `«${heard}»` : `«${heard}» (entendido: ${value})`);
 
 // visit: lo que se anota de cada llegada para el registro de visitas (a dónde se guió)
 const robotUI = (visit = null) => ({
@@ -456,19 +449,15 @@ const robotUI = (visit = null) => ({
     show($('screen'), true); $('screen').querySelector('strong').textContent = title; $('screen').querySelector('span').textContent = text;
   },
   // interpret (solo si el puente tiene LLM): el visitante también puede responder con sus palabras
-  onChoose: (q, options, { interpret, hints = {}, understand = options } = {}) => new Promise((resolve) => {
+  onChoose: (q, options, { interpret, hints = {}, understand = options } = {}) => {
     const box = $('choices').querySelector('.choice-list'), free = $('choose-free'), note = $('choose-note');
-    const finish = (o, said = o) => { stopListening(); show($('choices'), false); addBubble(said, { visitor: true }); resolve(o); };
-    // La opción dicha tal cual o con una frase del club ("quiero entrenar"); si no, el LLM del puente, si lo hay.
-    // Nunca una opción con otra hora u otro número que el dicho ("a las 3" no es "6 pm")
-    const meaning = async (text) => {
-      const o = sayOption(text, understand, hints) ?? (interpret ? await interpret(text).catch(() => null) : null);
-      return o && !contradicts(text, o) ? o : null;
-    };
+    let answer;
+    const human = new Promise((r) => { answer = r; }); // tocar una opción o escribirla por el visitante
+    const tapped = (o, said = o) => { addBubble(said, { visitor: true }); answer(o); };
     $('choices').querySelector('small').textContent = $('mic').checked ? 'El visitante responde hablando o toca una opción' : 'El visitante toca una opción en la pantalla';
     if ($('mic').checked && !interpret) $('voice-note').textContent = 'Sin LLM, el robot solo entiende las opciones y las frases de "Cómo reconocer cada opción". Para que entienda lenguaje natural: ./x2 llm y reiniciar ./x2 pibot.';
     box.innerHTML = ''; note.textContent = '';
-    options.forEach((o) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.onclick = () => finish(o); box.append(b); });
+    options.forEach((o) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = o; b.onclick = () => tapped(o); box.append(b); });
     show(free, !!interpret);
     if (interpret) {
       $('choose-text').value = '';
@@ -476,38 +465,31 @@ const robotUI = (visit = null) => ({
         e.preventDefault();
         const text = $('choose-text').value.trim(); if (!text) return;
         note.textContent = 'Interpretando…';
-        const o = await meaning(text);
-        if (o) finish(o, `«${text}» (entendido: ${o})`);
+        const o = await meaningOf(text, { understand, hints, interpret });
+        if (o) tapped(o, `«${text}» (entendido: ${o})`);
         else note.textContent = `No le entendí "${text}". Dígalo de otra forma o toque una opción.`;
       };
     }
     show($('choices'), true);
     box.querySelector('button')?.focus({ preventScroll: true });
-    listenFor(async (heard) => {
-      const o = await meaning(heard);
-      if (o) { finish(o, heardAs(heard, o)); return true; }
-      note.textContent = `No le entendí «${heard}». Dígalo de otra forma o toque una opción.`;
-      return false;
-    }, { again: (heard) => `${!heard ? '¿Perdón?' : outsideOptions(heard, options) ? 'Eso no lo tengo disponible.' : 'No le entendí bien.'} Puede decirme: ${joinEs(options)}.`,
-      context: `Opciones: ${joinEs(understand)}.` });
-  }),
-  onAsk: (q, { kind = 'code' } = {}) => new Promise((resolve) => {
+    const io = { listen: micListen(), say: robotSays, human,
+      heard: (said, understood) => (understood ? addBubble(said, { visitor: true }) : (note.textContent = `No le entendí ${said}. Dígalo de otra forma o toque una opción.`)) };
+    return chooseByVoice({ options, understand, hints, interpret, io }).finally(() => { stopListening(); show($('choices'), false); });
+  },
+  onAsk: (q, { kind = 'code' } = {}) => {
     const k = KINDS[kind], form = $('ask'), input = $('ask-input');
     $('ask-label').textContent = $('mic').checked ? `${k.label.replace(/ \(simulado[^)]*\)/, '')}: dígalo en voz alta o escríbalo aquí` : k.label;
     $('ask-skip').textContent = k.skip; $('ask-note').textContent = '';
     show(form, true); input.value = k.value(currentPerson()) ?? ''; input.focus();
-    const done = (v, said = v || k.skip) => { stopListening(); show(form, false); addBubble(said, { visitor: true }); resolve(v); };
-    form.onsubmit = (e) => { e.preventDefault(); done(input.value); };
-    $('ask-skip').onclick = () => done(null);
-    // Dicho en voz alta: el código como está registrado ("fiesta veintisiete" → FIESTA-27), la cédula, el nombre
-    listenFor(async (heard) => {
-      const a = spokenAnswer(heard, kind, workspace);
-      if (a.unknown) { $('ask-note').textContent = `No le entendí «${heard}». Dígalo de nuevo o escríbalo.`; return false; }
-      done(a.value, a.value ? heardAs(heard, a.value) : `«${heard}»`);
-      return true;
-    }, { tries: 2, again: (heard) => (!heard ? '¿Perdón? No le escuché.' : kind === 'code' ? 'No encontré ese código. ¿Me lo repite?' : '¿Me lo repite, por favor?'),
-      context: kind === 'code' ? `Códigos de acceso: ${knownCodes(workspace).join(', ')}.` : '' });
-  }),
+    let answer;
+    const human = new Promise((r) => { answer = r; }); // escribirlo por el visitante, o "No tengo"
+    const typed = (v) => { addBubble(v || k.skip, { visitor: true }); answer(v || null); };
+    form.onsubmit = (e) => { e.preventDefault(); typed(input.value); };
+    $('ask-skip').onclick = () => typed(null);
+    const io = { listen: micListen(), say: robotSays, human,
+      heard: (said, understood) => (understood ? addBubble(said, { visitor: true }) : ($('ask-note').textContent = `No le entendí ${said}. Dígalo de nuevo o escríbalo.`)) };
+    return askByVoice({ kind, workspace, io }).finally(() => { stopListening(); show(form, false); });
+  },
 });
 
 async function makeRobot(visit) {
@@ -668,7 +650,10 @@ function watchRobot(first) {
       if (document.body.dataset.view === 'flow') setPane('test');
     } else if (e.type === 'speak') {
       addBubble(e.text); $('robot').classList.add('speaking'); setTimeout(() => $('robot').classList.remove('speaking'), 300 + e.text.length * 18);
-    } else if (e.type === 'heard') addBubble(e.text, { visitor: true });
+    } else if (e.type === 'heard') { // lo que oyó el robot: entendido, como respuesta; si no, como aviso (igual que en la simulación)
+      if (e.understood === false) (!$('choices').hidden ? $('choose-note') : $('ask-note')).textContent = `No le entendí ${e.text}. Dígalo de otra forma o toque una opción.`;
+      else addBubble(e.text, { visitor: true });
+    }
     else if (e.type === 'log') logLine(e.text);
     else if (e.type === 'node') { editor.setStatus(e.id, e.status, e.info); if (e.status === 'running') editor.reveal(e.id); }
     else if (e.type === 'edge') editor.markEdge(e.edge);
