@@ -83,7 +83,7 @@ export class MujocoBridgeRobot extends SimulatorRobot {
     await this.speak(question);
     // Con LLM, la UI ofrece además "responder con sus palabras"; la opción la elige el LLM, nunca otra cosa
     const interpret = this.llm && this.can('interpret') ? (text) => this.interpret(question, understand, text, hints) : null;
-    return this.ui.onChoose ? this.ui.onChoose(question, options, { interpret, hints }) : null;
+    return this.ui.onChoose ? this.ui.onChoose(question, options, { interpret, hints, understand }) : null;
   }
 
   // hints: { opción: cómo la diría un visitante }, escrito por el club en el nodo; mejora mucho los aciertos

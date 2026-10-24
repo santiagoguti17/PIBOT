@@ -1,7 +1,10 @@
 // Diálogo para gestionar eventos (fiestas, obras, reuniones...) y los códigos de acceso que cada uno reparte.
+import { knownCodes, sayableCode } from '../core/spoken.js';
+
 const TYPES = ['Fiesta', 'Trabajo', 'Reunión', 'Otro'];
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const randCode = (type) => `${(type || 'EVT').slice(0, 5).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+// Códigos nuevos fáciles de decir ("FIESTA-27"), con un número que no tenga otro código del club
+const newCode = (type, ws) => sayableCode(type === 'Trabajo' ? 'Obra' : type, knownCodes(ws));
 
 export function openEvents(dialog, ws, { onChange, onReset }) {
   const render = () => {
@@ -48,9 +51,9 @@ export function openEvents(dialog, ws, { onChange, onReset }) {
   dialog.onclick = (e) => {
     const act = e.target.dataset?.act; if (!act) return;
     const fs = e.target.closest('fieldset'), ev = fs && ws.events[+fs.dataset.ev];
-    if (act === 'add-ev') ws.events.push({ id: 'e' + Date.now(), name: 'Nuevo evento', type: 'Fiesta', place: '', active: true, codes: [{ code: randCode('Fiesta'), role: 'Invitado', holder: '' }] });
+    if (act === 'add-ev') ws.events.push({ id: 'e' + Date.now(), name: 'Nuevo evento', type: 'Fiesta', place: '', active: true, codes: [{ code: newCode('Fiesta', ws), role: 'Invitado', holder: '' }] });
     if (act === 'del-ev') ws.events.splice(+fs.dataset.ev, 1);
-    if (act === 'add-code') ev.codes.push({ code: randCode(ev.type), role: ev.type === 'Trabajo' ? 'Trabajador externo' : 'Invitado', holder: '' });
+    if (act === 'add-code') ev.codes.push({ code: newCode(ev.type, ws), role: ev.type === 'Trabajo' ? 'Trabajador externo' : 'Invitado', holder: '' });
     if (act === 'del-code') ev.codes.splice(+e.target.closest('.code-row').dataset.code, 1);
     if (act === 'reset') { onReset(); return; }
     onChange(); render();

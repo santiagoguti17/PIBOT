@@ -1,4 +1,5 @@
-// Robot simulado en la web: emite eventos que la UI dibuja (burbujas, ruta, pantalla, campo de respuesta).
+// Robot dibujado en la página, de respaldo cuando el puente con el X2 (MuJoCo o real) no responde: emite eventos que la
+// UI dibuja (burbujas, ruta, pantalla, campo de respuesta). También lo usan las pruebas.
 export class SimulatorRobot {
   constructor(ui = {}, { speed = 18 } = {}) {
     this.ui = ui;
@@ -13,9 +14,9 @@ export class SimulatorRobot {
     await this.speak(question);
     return this.ui.onAsk ? this.ui.onAsk(question, opts) : null;
   }
-  async choose(question, options) {
+  async choose(question, options, opts = {}) {
     await this.speak(question);
-    return this.ui.onChoose ? this.ui.onChoose(question, options) : null;
+    return this.ui.onChoose ? this.ui.onChoose(question, options, opts) : null;
   }
   async show(content) { this.ui.onShow?.(content); await this.wait(600); }
   async gesture(name) { this.ui.onGesture?.(name); await this.wait(1000); }

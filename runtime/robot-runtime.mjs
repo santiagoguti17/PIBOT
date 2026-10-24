@@ -15,15 +15,13 @@ import { fileURLToPath } from 'node:url';
 import '../src/nodes/index.js';
 import { runFlow } from '../src/core/engine.js';
 import { MujocoBridgeRobot } from '../src/robot/mujoco-bridge.js';
-import { recordsFor, registryNames } from '../src/core/workspace.js';
+import { alnum, closestCode, contradicts, joinEs, knownCodes, outsideOptions, sayOption, spokenAnswer } from '../src/core/spoken.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = path.resolve(process.env.PIBOT_DATA ?? path.join(ROOT, 'robot-data'));
 const PORT = +(process.env.PORT ?? 8000), HOST = process.env.HOST ?? '0.0.0.0';
 const BRIDGE = process.env.PIBOT_BRIDGE ?? 'ws://127.0.0.1:8765';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const norm = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9ñ ]+/g, ' ').replace(/\s+/g, ' ').trim();
-const joinEs = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} o ${xs.at(-1)}`);
 
 // ---- Lo publicado: flujo y configuración del club (lugares, eventos, listas) ----
 const readJSON = async (p, fallback) => { try { return JSON.parse(await fs.readFile(p, 'utf8')); } catch { return fallback; } };
@@ -66,7 +64,7 @@ const ui = {
   onNavigate: (destination) => broadcast({ type: 'navigate', destination }),
   onGesture: (name) => broadcast({ type: 'gesture', name }),
   onShow: ({ title, text }) => broadcast({ type: 'show', title, text }),
-  onChoose: (question, options, { interpret, hints } = {}) => voiceChoose(question, options, interpret, hints),
+  onChoose: (question, options, { interpret, hints, understand } = {}) => voiceChoose(question, options, interpret, hints, understand),
   onAsk: (question, { kind = 'code' } = {}) => voiceAsk(kind),
 };
 
@@ -110,75 +108,23 @@ async function listen(seconds) {
   return text;
 }
 
-// Opción dicha tal cual ("el gimnasio" → Gimnasio) o con una de las frases que el club escribió para ella en
-// "Cómo reconocer cada opción" ("quiero entrenar" → Gimnasio); si no, la interpreta el LLM entre todas las que entiende
-function sayOption(text, options, hints = {}) {
-  const said = ` ${norm(text)} `;
-  const found = [];
-  for (const o of options) {
-    for (const phrase of [o, ...String(hints[o] ?? '').split(',')]) {
-      const p = norm(phrase);
-      if (p.length >= 3 && said.includes(` ${p} `)) found.push({ o, len: p.length });
-    }
-  }
-  return found.sort((a, b) => b.len - a.len)[0]?.o ?? null;
-}
-
-async function voiceChoose(question, options, interpret, hints = {}) {
+// La opción dicha tal cual o con una frase del club; si no, la interpreta el LLM entre todas las que entiende
+async function voiceChoose(question, options, interpret, hints = {}, understand = options) {
   const human = askHuman('choose', { question, options }, 60000);
   try {
     for (let attempt = 0; attempt < 3; attempt++) {
       const heard = await Promise.race([listen(10), human.promise.then((v) => ({ human: v }))]);
       if (heard?.human !== undefined) return heard.human;
       if (heard) {
-        const option = sayOption(heard, options, hints) ?? (interpret ? await interpret(heard).catch(() => null) : null);
+        let option = sayOption(heard, understand, hints) ?? (interpret ? await interpret(heard).catch(() => null) : null);
+        if (option && contradicts(heard, option)) option = null; // "a las 3" no es "6 pm", aunque el LLM lo elija
         if (option) { broadcast({ type: 'understood', option }); return option; }
       }
-      if (attempt < 2) await robot.speak(`${heard ? 'No le entendí bien.' : '¿Perdón?'} Puede decirme: ${joinEs(options)}.`);
+      if (attempt < 2) await robot.speak(`${!heard ? '¿Perdón?' : outsideOptions(heard, options) ? 'Eso no lo tengo disponible.' : 'No le entendí bien.'} Puede decirme: ${joinEs(options)}.`);
     }
     return null;
   } finally { human.cancel(); }
 }
-
-// Códigos dictados: los números en palabras, las letras por su nombre ("ka" → K) y sin las palabras de relleno.
-// Whisper junta a veces letra y número ("siete K dos" → "7 cados"): se separa cada palabra en nombres de letras y
-// números cuando se puede ("cados" → ca + dos → K2).
-const SPOKEN = { cero: '0', uno: '1', una: '1', dos: '2', tres: '3', cuatro: '4', cinco: '5', seis: '6', siete: '7', ocho: '8',
-  nueve: '9', a: 'A', be: 'B', ce: 'C', se: 'C', de: 'D', e: 'E', efe: 'F', ge: 'G', hache: 'H', i: 'I', jota: 'J', ka: 'K',
-  ca: 'K', ele: 'L', eme: 'M', ene: 'N', o: 'O', pe: 'P', cu: 'Q', erre: 'R', ere: 'R', ese: 'S', te: 'T', u: 'U', uve: 'V',
-  ve: 'V', equis: 'X', ye: 'Y', zeta: 'Z', seta: 'Z' };
-const FILLER = new Set(['mi', 'codigo', 'el', 'la', 'es', 'de', 'del', 'tengo', 'este', 'aqui', 'numero', 'cedula', 'documento',
-  'mis', 'son', 'pues', 'bueno', 'si', 'claro', 'guion', 'con']);
-const alnum = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-function splitSpoken(word) { // "cados" → "K2"; null si no se puede separar en letras y números
-  if (!word) return '';
-  for (let n = Math.min(5, word.length); n > 0; n--) {
-    const head = SPOKEN[word.slice(0, n)];
-    const rest = head !== undefined && splitSpoken(word.slice(n));
-    if (head !== undefined && rest !== null && rest !== false) return head + rest;
-  }
-  return null;
-}
-const spokenCode = (text) => norm(text).split(' ').filter((w) => !FILLER.has(w))
-  .map((w) => (/^\d+$/.test(w) ? w : SPOKEN[w] ?? (w.length <= 6 && splitSpoken(w)) ?? w.toUpperCase())).join('');
-function distance(a, b) { // Levenshtein
-  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
-  for (let j = 1; j <= b.length; j++) d[0][j] = j;
-  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
-    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-  return d[a.length][b.length];
-}
-// El código registrado que más se parece a lo dicho, si se parece lo bastante y no hay empate
-export function closestCode(said, codes) {
-  const ranked = codes.map((c) => ({ c, d: distance(alnum(c), said) })).sort((x, y) => x.d - y.d);
-  const best = ranked[0];
-  if (!best) return null;
-  // Una letra de diferencia (dos en códigos largos), y sin empate: así "fiesta 7" no pasa por FIESTA-7K2
-  const ok = best.d === 0 || (best.d <= Math.max(1, Math.floor(alnum(best.c).length / 6)) && (!ranked[1] || ranked[1].d > best.d));
-  return ok ? best.c : null;
-}
-const NO_ANSWER = /^(no|no tengo|no lo tengo|no lo traigo|no traigo|prefiero no|ninguno|nada)( .*)?$/;
-const knownCodes = () => registryNames(workspace).flatMap((r) => recordsFor(workspace, r).map((x) => x.code)).filter(Boolean);
 
 // El código también puede mostrarse como QR a la cámara: gana lo que llegue primero, voz o QR
 async function hearOrScan(seconds, kind) {
@@ -198,17 +144,12 @@ async function voiceAsk(kind) {
     for (let attempt = 0; attempt < 2; attempt++) {
       const got = await Promise.race([hearOrScan(10, kind), human.promise.then((v) => ({ human: v }))]);
       if (got?.human !== undefined) return got.human || null;
-      if (got?.qr) { broadcast({ type: 'heard', text: `QR: ${got.qr}` }); return closestCode(alnum(got.qr), knownCodes()) ?? got.qr; }
+      if (got?.qr) { broadcast({ type: 'heard', text: `QR: ${got.qr}` }); return closestCode(alnum(got.qr), knownCodes(workspace)) ?? got.qr; }
       const heard = got?.heard;
       if (!heard) { if (attempt === 0) await robot.speak('¿Perdón? No le escuché.'); continue; }
-      if (NO_ANSWER.test(norm(heard))) return null;
-      if (kind === 'name' || kind === 'destination' || kind === 'request') return heard.replace(/[.,;!?¿¡]/g, '').trim();
-      const said = spokenCode(heard);
-      if (kind === 'document') return said.replace(/\D/g, '') || null;
-      // El código tal como está registrado ("FIESTA-7K2"), aunque Whisper lo haya escrito distinto ("fiesta 7 cados")
-      const code = closestCode(said, knownCodes());
-      if (code) return code;
-      if (attempt === 0) await robot.speak('No encontré ese código. ¿Me lo repite, o me muestra el código QR?');
+      const answer = spokenAnswer(heard, kind, workspace);
+      if (!answer.unknown) return answer.value;
+      if (attempt === 0) await robot.speak(kind === 'code' ? 'No encontré ese código. ¿Me lo repite, o me muestra el código QR?' : '¿Me lo repite, por favor?');
     }
     return null;
   } finally { human.cancel(); }

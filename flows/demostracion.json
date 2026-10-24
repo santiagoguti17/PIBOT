@@ -59,7 +59,7 @@
     {
       "id": "v2",
       "type": "booking.habit",
-      "name": "VIP: su tenis de las 3 pm",
+      "name": "VIP: su entrenamiento de las 3 pm",
       "x": 644,
       "y": 108,
       "config": {}
@@ -67,11 +67,11 @@
     {
       "id": "v3",
       "type": "robot.orient",
-      "name": "VIP: su cancha está lista",
+      "name": "VIP: su gimnasio está listo",
       "x": 954,
       "y": 152,
       "config": {
-        "message": "Le acompaño a su cancha.",
+        "message": "Le acompaño a {{place}}.",
         "destination": "{{place}}"
       }
     },
@@ -82,7 +82,7 @@
       "x": 954,
       "y": 265,
       "config": {
-        "message": "Mientras llega su hora, le acompaño al Salón VIP; a las {{time}} su cancha estará lista.",
+        "message": "Mientras llega su hora, le acompaño al Salón VIP; a las {{time}} el gimnasio estará listo para usted.",
         "destination": "Salón VIP"
       }
     },
@@ -105,7 +105,7 @@
       "y": 177,
       "config": {
         "question": "Bienvenido de nuevo, {{name}}. ¿Qué le gustaría reservar hoy?",
-        "alternatives": "Cancha de pádel, Piscina"
+        "alternatives": "Clase de yoga, Mesa en el restaurante"
       }
     },
     {
