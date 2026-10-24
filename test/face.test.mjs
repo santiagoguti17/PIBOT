@@ -22,7 +22,7 @@ async function visit(flowPath, face, answers = {}) {
   };
   const r = await runFlow(read(`../${flowPath}`), { person, robot, workspace: structuredClone(workspace),
     hooks: { onNotify: () => {}, onApprove: async () => true } });
-  return { port: r.trace[0].port, said: said.join(' | '), asked, routes, name: r.vars.name };
+  return { port: r.trace.find((t) => t.type === 'visitor.identify').port, said: said.join(' | '), asked, routes, name: r.vars.name };
 }
 
 const conv = 'flows/recepcion-conversacional.json', demo = 'flows/demostracion.json';

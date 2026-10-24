@@ -23,7 +23,7 @@ async function frenteALaCamara(flowPath, face, answers = {}, ws = structuredClon
     show: async () => {}, gesture: async () => {}, navigate: async (d) => routes.push(d),
   };
   const r = await runFlow(read(`../${flowPath}`), { person, robot, workspace: ws, hooks: { onNotify: () => {}, onApprove: async () => true } });
-  return { port: r.trace[0].port, said: said.join(' | '), asked, routes, name: r.vars.name, ws };
+  return { port: r.trace.find((t) => t.type === 'visitor.identify').port, said: said.join(' | '), asked, routes, name: r.vars.name, ws };
 }
 
 const demo = 'flows/demostracion.json';

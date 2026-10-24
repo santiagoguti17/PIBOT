@@ -2,6 +2,16 @@
   "name": "Demostración N Club: los cinco visitantes",
   "nodes": [
     {
+      "id": "g0",
+      "type": "robot.gesture",
+      "name": "Saludo al llegar",
+      "x": 24,
+      "y": 250,
+      "config": {
+        "gesture": "saludar"
+      }
+    },
+    {
       "id": "n1",
       "type": "visitor.identify",
       "name": "Identificar visitante",
@@ -44,16 +54,6 @@
             "prompt": "Bienvenido. Para orientarle, ¿me indica su código de acceso?"
           }
         ]
-      }
-    },
-    {
-      "id": "v1",
-      "type": "robot.gesture",
-      "name": "VIP: saludo",
-      "x": 334,
-      "y": 64,
-      "config": {
-        "gesture": "saludar"
       }
     },
     {
@@ -229,13 +229,13 @@
   ],
   "edges": [
     {
-      "from": "n1",
-      "fromPort": "VIP",
-      "to": "v1"
+      "from": "g0",
+      "fromPort": "out",
+      "to": "n1"
     },
     {
-      "from": "v1",
-      "fromPort": "out",
+      "from": "n1",
+      "fromPort": "VIP",
       "to": "v2"
     },
     {
