@@ -1,4 +1,4 @@
-import { categoryOf, recordsFor } from '../core/workspace.js';
+import { categoryOf, EVENTS, recordsFor } from '../core/workspace.js';
 
 // Formas de identificar a un visitante. Cada una intenta dar una categoría con su propia señal;
 // el nodo "Identificar visitante" las prueba en el orden y bajo las condiciones que el usuario elija.
@@ -38,6 +38,27 @@ export function clubCategory(workspace, raw) {
   return hit ? map[hit] : raw;
 }
 
+// Quién es para el club alguien que la cara ya reconoció, solo por su nombre: miembro (lista de miembros), personal
+// (nómina) o invitado o trabajador de un evento vigente (su lista). Sin carné, código ni nombre dicho: la cara basta.
+function fromLists(workspace, cfg, name) {
+  const member = recordsFor(workspace, cfg.memberRegistry).find((m) => same(m.key, name));
+  if (member) return { category: categoryOf(member), name: member.key, list: cfg.memberRegistry, member: true };
+  for (const reg of list(cfg.codeRegistries ?? '').filter((r) => r !== EVENTS)) {
+    const rec = recordsFor(workspace, reg).find((r) => same(r.holder ?? r.key, name));
+    if (rec?.active === false) return { reason: `${reg}: no está vigente` };
+    // Lo mismo que daría su código (el área, la agenda), sin el código ni el documento
+    const { code: _c, active: _a, holder: _h, document: _d, ...info } = rec ?? {};
+    if (rec) return { ...info, category: categoryOf(rec), name, list: reg };
+  }
+  for (const ev of workspace.events ?? []) {
+    if (!(ev.guests ?? []).some((g) => same(g, name))) continue;
+    if (ev.active === false) return { reason: `${ev.name} no está vigente`, tell: `Su invitación es del evento «${spokenName(ev.name)}», que ya finalizó.` };
+    return { category: ev.codes?.[0]?.role ?? 'Invitado', name, event: ev.name, place: ev.place,
+      area: ev.requireArea ? ev.place : undefined, list: `lista de ${ev.name}` };
+  }
+  return null;
+}
+
 // Lo que dijo el reconocimiento facial real (servicio ./x2 rostro). Solo "identified" trae persona; con "unknown" se
 // sigue como no miembro (se le pide su código), con "ambiguous" como duda, y si no hubo una cara útil, como sin cámara.
 const FACE_STATES = {
@@ -49,9 +70,8 @@ const FACE_STATES = {
   invalid_image: ['sin cámara', 'no pudo leer la foto'],
   not_ready: ['sin cámara', 'el servicio todavía no tiene las personas registradas'],
 };
-// La cara dice quién es. Si está en la lista de miembros del club, la categoría sale de ahí (cara + lista, como con la
-// cámara simulada), aunque en Supabase tenga otra. Si no está (invitado, personal, trabajador), la cara sola no basta,
-// igual que en el club: se sigue como con un no miembro y se le pide su código o su carné, pero ya se sabe su nombre.
+// La cara dice quién es (las personas registradas en Supabase) y las listas del club, su categoría, aunque en Supabase
+// tenga otra. Si no está en ninguna lista, se sigue como no miembro, pero ya se sabe su nombre.
 async function realFace(person, workspace, state, cfg) {
   let r;
   try { r = await person.camera(); } catch (err) {
@@ -59,36 +79,42 @@ async function realFace(person, workspace, state, cfg) {
     return { reason: `reconocimiento facial no disponible: ${err.message}` };
   }
   if (r.status === 'identified' && r.person) {
-    // La categoría la decide la lista de miembros del club, no la que tenga la persona en Supabase
-    const rec = recordsFor(workspace, cfg.memberRegistry).find((m) => same(m.key, r.person.name));
     state.cameraText = `reconoce a ${r.person.name} (similitud ${r.similarity.toFixed(2)})`;
     state.knownName = r.person.name;
-    if (!rec) { state.camera = 'no miembro'; return null; }
-    state.camera = 'miembro'; state.cameraSaidMember = true;
-    return { category: categoryOf(rec), name: r.person.name, destination: r.person.destination ?? '',
-      via: 'reconocimiento facial + lista de miembros', similarity: +r.similarity.toFixed(2) };
+    return byFace(workspace, cfg, state, r.person.name,
+      { destination: r.person.destination ?? '', similarity: +r.similarity.toFixed(2) });
   }
   const [camera, text] = FACE_STATES[r.status] ?? ['sin cámara', r.status];
   state.camera = camera; state.cameraText = text;
   return camera === 'no miembro' ? null : { reason: text };
 }
 
+// Lo mismo con la cámara real y con la simulada: con el nombre que dio la cara, la categoría sale de las listas
+function byFace(workspace, cfg, state, name, extra = {}) {
+  const hit = fromLists(workspace, cfg, name);
+  state.camera = hit?.member ? 'miembro' : 'no miembro';
+  state.cameraSaidMember = !!hit?.member;
+  if (!hit) return { reason: `${name} no está en las listas del club`, tell: 'No le encuentro en las listas del club.' };
+  if (hit.reason) return hit;
+  const { list: from, member: _m, ...found } = hit;
+  return { ...found, ...extra, via: `reconocimiento facial + ${from}` };
+}
+
 registerMethod({
   id: 'camera',
   label: 'Reconocimiento facial',
   real: false,
-  help: 'Con "Persona frente a la cámara", reconocimiento facial real con las personas registradas en Supabase; con un visitante del dataset, simulado (miembro / no miembro con una confianza).',
+  help: 'La cara dice quién es y las listas del club su categoría: miembros, nómina de personal e invitados o trabajadores de los eventos vigentes. Sin carné ni código. Con "Persona frente a la cámara", reconocimiento facial real con las personas registradas en Supabase; con un visitante del dataset, simulado (con una confianza).',
   async run({ person, workspace }, cfg, state) {
     if (person.camera) return realFace(person, workspace, state, cfg);
-    const { isMember, confidence } = person.face;
-    state.cameraText = `${isMember ? 'miembro' : 'no miembro'} ${Math.round(confidence * 100)} %`;
-    state.cameraSaidMember = isMember;
-    if (confidence < Number(cfg.minConfidence)) { state.camera = 'duda'; return { reason: 'confianza facial baja' }; }
-    if (!isMember) { state.camera = 'no miembro'; return null; }
-    const rec = recordsFor(workspace, cfg.memberRegistry).find((r) => same(r.key, person.name));
-    if (!rec) { state.camera = 'duda'; return { reason: 'la cámara dice miembro, pero no figura en la lista' }; }
-    state.camera = 'miembro';
-    return { category: categoryOf(rec), name: person.name, via: 'cámara + lista de miembros' };
+    const { confidence } = person.face;
+    state.cameraText = `reconoce a ${person.name} (${Math.round(confidence * 100)} %)`;
+    if (confidence < Number(cfg.minConfidence)) {
+      state.camera = 'duda'; state.cameraSaidMember = !!fromLists(workspace, cfg, person.name)?.member;
+      return { reason: 'confianza facial baja' };
+    }
+    state.knownName = person.name;
+    return byFace(workspace, cfg, state, person.name);
   },
 });
 

@@ -56,33 +56,29 @@ check(/más opciones: la clase de yoga o la mesa en el restaurante/.test(r.said)
 check(!/Adriana/.test(r.said), '2. no revela el nombre del miembro VIP');
 check(gym(ws).bookings.length === 1 && ws.resources.find((x) => x.name === 'Clase de yoga').bookings[0]?.holder === 'Santiago Urrego', '2. reserva el yoga a su nombre y el gimnasio sigue siendo de Adriana');
 
-// 3. Invitado: nombre + código del evento
+// 3. Invitado: la cara lo reconoce y está en la lista del evento; no se le pide nada
+const asked = (r) => r.res.trace[0].data.via && !/código|carné|nombre|área/.test(r.said.split(' | ').filter((s) => s.includes('?')).join(' '));
 r = await receive(ws, person('Rafael Salcedo'));
-check(r.res.trace[0].port === 'Invitado' && /código de entrada.*su nombre/.test(r.said) && !/área/.test(r.said), '3. pide el código y el nombre, nada más (el área es solo para los trabajos)');
-check(r.routes.at(-1) === 'Terraza, piso 4' && /coinciden con la lista de Cumpleaños de Valeria/.test(r.said), '3. nombre y código coinciden: lo lleva a su evento');
+check(r.res.trace[0].port === 'Invitado' && asked(r), '3. Rafael: la cara basta, no le pide código, carné ni nombre');
+check(r.routes.at(-1) === 'Terraza, piso 4' && /está en la lista de Cumpleaños de Valeria/i.test(r.said), '3. está en la lista: lo lleva a su evento');
 let bad = person('Rafael Salcedo'); bad.name = 'Pedro Colado';
 r = await receive(ws, bad);
-check(r.res.trace[0].port === 'Necesita ayuda' && /no está en la lista de Cumpleaños/.test(r.res.trace[0].data.reason) && r.notes.length === 1, '3. código bueno con un nombre que no está en la lista: pasa a recepción');
-bad = person('Rafael Salcedo'); bad.code = 'FIESTA-000';
-check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '3. nombre en la lista con un código que no es: pasa a recepción');
+check(r.res.trace[0].port === 'Necesita ayuda' && /no está en las listas del club/.test(r.res.trace[0].data.reason) && r.notes.length === 1, '3. una cara que no está en ninguna lista: pasa a recepción');
+bad = person('Rafael Salcedo'); bad.face.confidence = 0.5;
+check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '3. la cámara duda: pasa a recepción sin pedirle credenciales');
 
 // 4. Personal: reunión en el restaurante, llega tarde, parte del día
 r = await receive(ws, person('Fermín Escalona'));
-check(r.res.trace[0].port === 'Personal del club' && r.res.trace[0].data.via.includes('documento'), '4. Fermín se confirma con su carné');
+check(r.res.trace[0].port === 'Personal del club' && r.res.trace[0].data.via.includes('Nómina de personal') && asked(r), '4. Fermín: la cara y la nómina del personal, sin carné');
 check(/ya van 30 minutos/.test(r.said) && /Reunión de coordinación en Restaurante/.test(r.said), '4. sabe de su reunión y que va 30 minutos tarde');
 check(/grupo grande a la hora del almuerzo/.test(r.said) && /mantenimiento de las máquinas del gimnasio/.test(r.said) && /cumpleaños de Valeria/.test(r.said), '4. le da el parte del día, con el mantenimiento y la fiesta');
 check(r.routes.at(-1) === 'Restaurante', '4. lo acompaña al restaurante');
 
-// 5. Trabajador externo: nombre + área + código
+// 5. Trabajador externo: la cara y la orden de trabajo del mantenimiento del gimnasio
 r = await receive(ws, person('Santiago Gutiérrez'));
-check(r.res.trace[0].port === 'Trabajador externo' && r.routes.at(-1) === 'Acceso de servicio → Gimnasio' && /código de entrada.*su nombre.*área/.test(r.said), '5. código, nombre y área coinciden: entra por el acceso de servicio al gimnasio');
-bad = person('Santiago Gutiérrez'); bad.destination = 'Spa';
-r = await receive(ws, bad);
-check(r.res.trace[0].port === 'Necesita ayuda' && /el trabajo es en Gimnasio/.test(r.res.trace[0].data.reason), '5. dice ir a otra área: no entra');
-bad = person('Santiago Gutiérrez'); bad.name = 'Rafael Salcedo';
-check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '5. un nombre que no es de los trabajadores: no entra');
-bad = person('Santiago Gutiérrez'); bad.destination = 'el gimnasio';
-check((await receive(ws, bad)).res.trace[0].port === 'Trabajador externo', '5. «el gimnasio» y «Gimnasio» son la misma área');
+check(r.res.trace[0].port === 'Trabajador externo' && r.routes.at(-1) === 'Acceso de servicio → Gimnasio' && asked(r), '5. Santiago Gutiérrez: la cara y la orden de trabajo; entra por el acceso de servicio al gimnasio');
+r = await receive(ws, person('Diego Salazar'));
+check(r.res.trace[0].port === 'Necesita ayuda', '5. un trabajador que no figura con su nombre en ninguna orden: no entra');
 
 // Si se vuelve a empezar el día, Santiago Urrego sí consigue su hora... con otra persona que la tenga libre
 const day2 = fresh();

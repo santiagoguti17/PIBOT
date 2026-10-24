@@ -31,11 +31,11 @@ check(v.said.includes('No encuentro ese código.') && !v.routes.length, 'código
 v = await visit('flows/recepcion-conversacional.json', guest('Laura Giraldo', 'fiesta 27'));
 check(v.routes.some((r) => r.startsWith('Terraza')), 'el código escrito con espacio en vez de guion también vale');
 v = await visit('flows/demostracion.json', guest('Sofía Gómez', 'GALA-15'));
-check(v.said.includes('que ya finalizó'), 'demostración: el evento que ya finalizó, verificado por nombre y código');
+check(v.said.includes('Su invitación es del evento «Cena de gala», que ya finalizó.'), 'demostración: la cara reconoce a una invitada de un evento que ya finalizó');
 v = await visit('flows/demostracion.json', guest('Pedro Páramo', 'FIESTA-27'));
-check(v.said.includes('No encuentro su nombre en la lista de «Cumpleaños de Valeria».'), 'demostración: nombre que no está en la lista');
-v = await visit('flows/recepcion-conversacional.json', guest('Sofía Gómez', null));
-check(v.said.includes('No logro confirmar quién es') && !v.said.includes('No encuentro'), 'sin código, no hay nada que explicar: dice el mensaje de siempre');
+check(v.said.includes('No le encuentro en las listas del club.'), 'demostración: una cara que no está en ninguna lista');
+v = await visit('flows/recepcion-conversacional.json', guest('Sara Nieto', null));
+check(v.said.includes('No le encuentro en las listas del club.') && !v.said.includes('No encuentro ese código') && v.notes, 'una cara que no está en ninguna lista y sin código: se lo dice y lo pasa a recepción');
 
 console.log(fails ? `${fails} fallos` : 'todos correctos');
 process.exit(fails ? 1 : 0);
