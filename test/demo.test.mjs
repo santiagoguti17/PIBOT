@@ -1,0 +1,85 @@
+// Demostración N Club: los cinco visitantes en orden, con las reservas del día compartidas entre ellos.
+//   node test/demo.test.mjs [-v]   (-v muestra lo que dice el robot)
+import { readFileSync } from 'node:fs';
+import '../src/nodes/index.js';
+import { runFlow } from '../src/core/engine.js';
+
+const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url)));
+const people = read('../data/people.json');
+const flow = read('../flows/demostracion.json');
+const verbose = process.argv.includes('-v');
+const person = (name) => structuredClone(people.find((p) => p.name === name));
+
+// Robot de prueba: responde con lo que "trae" la persona (código, documento, nombre, lo que pide) y con sus opciones en orden
+async function receive(workspace, p) {
+  const out = { said: [], routes: [], notes: [], shown: [] };
+  const choices = [...(p.choices ?? [])];
+  const robot = {
+    speak: async (t) => out.said.push(t),
+    ask: async (q, { kind = 'code' } = {}) => { out.said.push(q); return p[kind] ?? null; },
+    choose: async (q, options) => { out.said.push(q); const c = choices.shift(); return options.includes(c) ? c : null; },
+    show: async (c) => out.shown.push(c), gesture: async () => {}, navigate: async (d) => out.routes.push(d),
+  };
+  const res = await runFlow(flow, { person: p, robot, workspace, hooks: { onNotify: (n) => out.notes.push(n.message) } });
+  if (verbose) { console.log(`\n== ${p.name}: ${res.trace.map((t) => t.node + (t.port !== 'out' ? `(${t.port})` : '')).join(' → ')}`); out.said.forEach((t) => console.log(`   robot: ${t}`)); out.routes.forEach((d) => console.log(`   guía a: ${d}`)); }
+  return { res, ...out, said: out.said.join(' | ') };
+}
+
+let fails = 0;
+const check = (ok, msg) => { console.log(`${ok ? 'OK   ' : 'FALLA'} ${msg}`); if (!ok) fails++; };
+const fresh = () => read('../data/club.json');
+const tenis = (ws) => ws.resources.find((r) => r.name === 'Cancha de tenis');
+
+const ws = fresh();
+
+// 1. VIP: su tenis de las 3 pm no se puede (mantenimiento); acepta las 5 pm
+let r = await receive(ws, person('Adriana Galbán'));
+check(r.res.trace[0].port === 'VIP', '1. Adriana se reconoce como VIP');
+check(/le gusta jugar en la cancha de tenis a las 3 pm/.test(r.said) && /mantenimiento de la cancha/.test(r.said), '1. el robot conoce su hábito y le dice que hay mantenimiento');
+check(/¿Le reprogramo a las 5 pm\?/.test(r.said), '1. le propone reprogramar a las 5 pm');
+check(tenis(ws).bookings.some((b) => b.time === '17:00' && b.holder === 'Adriana Galbán' && b.category === 'VIP'), '1. queda reservada a las 5 pm a su nombre');
+check(r.routes.at(-1) === 'Salón VIP', '1. mientras espera la acompaña al Salón VIP');
+
+// 2. Regular: pide tenis a las 5 pm; ya la tiene un VIP y no hay más horarios; elige pádel
+r = await receive(ws, person('Santiago Urrego'));
+check(r.res.trace[0].port === 'Regular', '2. Santiago Urrego se reconoce como regular');
+check(/ya la reservó un miembro VIP/.test(r.said) && /no quedan más horarios de cancha de tenis/.test(r.said), '2. le dice que la reservó un miembro VIP y que no hay más tenis hoy');
+check(/más opciones: la cancha de pádel o la piscina/.test(r.said), '2. le ofrece dos opciones más (pádel y piscina)');
+check(!/Adriana/.test(r.said), '2. no revela el nombre del miembro VIP');
+check(tenis(ws).bookings.length === 1 && ws.resources.find((x) => x.name === 'Cancha de pádel').bookings[0]?.holder === 'Santiago Urrego', '2. reserva el pádel a su nombre y el tenis sigue siendo de Adriana');
+
+// 3. Invitado: nombre + código del evento
+r = await receive(ws, person('Rafael Salcedo'));
+check(r.res.trace[0].port === 'Invitado' && /¿Cuál es su nombre\?.*¿A dónde se dirige\?.*código de entrada/.test(r.said), '3. pregunta nombre, destino y código');
+check(r.routes.at(-1) === 'Terraza, piso 4' && /coinciden con la lista de Cumpleaños de Valeria/.test(r.said), '3. nombre y código coinciden: lo lleva a su evento');
+let bad = person('Rafael Salcedo'); bad.name = 'Pedro Colado';
+r = await receive(ws, bad);
+check(r.res.trace[0].port === 'Necesita ayuda' && /no está en la lista de Cumpleaños/.test(r.res.trace[0].data.reason) && r.notes.length === 1, '3. código bueno con un nombre que no está en la lista: pasa a recepción');
+bad = person('Rafael Salcedo'); bad.code = 'FIESTA-000';
+check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '3. nombre en la lista con un código que no es: pasa a recepción');
+
+// 4. Personal: reunión en el restaurante, llega tarde, parte del día
+r = await receive(ws, person('Fermín Escalona'));
+check(r.res.trace[0].port === 'Personal del club' && r.res.trace[0].data.via.includes('documento'), '4. Fermín se confirma con su carné');
+check(/ya van 30 minutos/.test(r.said) && /Reunión de coordinación en Restaurante/.test(r.said), '4. sabe de su reunión y que va 30 minutos tarde');
+check(/grupo grande a la hora del almuerzo/.test(r.said) && /comida de administrativos/.test(r.said), '4. le da el parte del día');
+check(r.routes.at(-1) === 'Restaurante', '4. lo acompaña al restaurante');
+
+// 5. Trabajador externo: nombre + área + código
+r = await receive(ws, person('Santiago Gutiérrez'));
+check(r.res.trace[0].port === 'Trabajador externo' && r.routes.at(-1) === 'Acceso de servicio → Cancha de tenis', '5. nombre, área y código coinciden: entra por el acceso de servicio a la cancha');
+bad = person('Santiago Gutiérrez'); bad.destination = 'Piscina';
+r = await receive(ws, bad);
+check(r.res.trace[0].port === 'Necesita ayuda' && /el trabajo es en Cancha de tenis/.test(r.res.trace[0].data.reason), '5. dice ir a otra área: no entra');
+bad = person('Santiago Gutiérrez'); bad.name = 'Rafael Salcedo';
+check((await receive(ws, bad)).res.trace[0].port === 'Necesita ayuda', '5. un nombre que no es de los trabajadores: no entra');
+bad = person('Santiago Gutiérrez'); bad.destination = 'la cancha de tenis';
+check((await receive(ws, bad)).res.trace[0].port === 'Trabajador externo', '5. «la cancha de tenis» y «cancha de tenis» son la misma área');
+
+// Si se vuelve a empezar el día, Santiago Urrego sí consigue su hora... con otra persona que la tenga libre
+const day2 = fresh();
+r = await receive(day2, person('Santiago Urrego'));
+check(tenis(day2).bookings[0]?.holder === 'Santiago Urrego' && tenis(day2).bookings[0].time === '17:00', 'sin la reprogramación del VIP, Santiago Urrego consigue el tenis a las 5 pm');
+
+console.log(fails ? `\n${fails} fallos` : '\ntodos correctos');
+process.exit(fails ? 1 : 0);

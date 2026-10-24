@@ -37,13 +37,13 @@ async function visit(person, { approved = true } = {}) {
   return r.status !== 'ok' ? `error: ${r.error}` : routes[0] ?? (notes.includes('Recepción') ? 'ESCALA' : '—');
 }
 const want = { p1: 'Salón VIP', p2: 'Gimnasio', p3: 'Terraza', p4: 'Vestier de personal', p5: 'Acceso de servicio', p6: 'Restaurante', p7: 'ESCALA' };
-for (const p of people) { const got = await visit(p); expect(got.includes(want[p.id]), `${p.name} (${p.truth}) → ${got}`); }
+for (const p of people.filter((x) => want[x.id])) { const got = await visit(p); expect(got.includes(want[p.id]), `${p.name} (${p.truth}) → ${got}`); }
 const rejected = await visit(people.find((p) => p.id === 'p5'), { approved: false });
 expect(rejected === 'ESCALA', `Trabajador externo no autorizado → ${rejected}`);
 
 // Una categoría desmarcada se trata como alguien que el robot no reconoce
 const sinVip = buildFlow({ ...plan, categories: plan.categories.map((c) => ({ ...c, on: c.name !== 'VIP' })) }, { portsOf });
-const r = await runFlow(sinVip, { person: people[0], workspace, robot: { speak: async () => {}, ask: async () => null, choose: async () => null, show: async () => {}, gesture: async () => {}, navigate: async () => {} }, hooks: { onNotify: () => {} } });
+const r = await runFlow(sinVip, { person: people.find((p) => p.id === 'p1'), workspace, robot: { speak: async () => {}, ask: async () => null, choose: async () => null, show: async () => {}, gesture: async () => {}, navigate: async () => {} }, hooks: { onNotify: () => {} } });
 expect(r.trace.at(-1).type === 'escalation.assist', 'sin VIP en el flujo, Camila pasa a recepción');
 
 console.log(`\n${fails ? fails + ' fallos' : 'todos correctos'}`);

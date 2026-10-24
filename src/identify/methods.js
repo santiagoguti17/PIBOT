@@ -125,12 +125,68 @@ registerMethod({
   },
 });
 
+const PURPOSES = [
+  ['Soy del personal del club', 'personal', 'trabajo aquí, soy empleado, soy del personal, vengo a mi turno'],
+  ['Vengo a un evento', 'evento', 'soy invitado, vengo a una fiesta, un cumpleaños, un evento, me invitaron'],
+  ['Vengo a realizar un trabajo', 'trabajo', 'vengo a reparar, mantenimiento, una obra, soy proveedor, vengo a trabajar'],
+];
+
+// No identifica a nadie: pregunta qué lo trae, y eso decide qué verificación sigue (carné, lista de un evento...)
+registerMethod({
+  id: 'purpose',
+  label: 'Preguntar qué lo trae',
+  askable: true,
+  help: 'No da una categoría por sí sola: la respuesta decide qué forma de identificar se usa después (por ejemplo, carné si es del personal, lista del evento si viene a un evento o a un trabajo).',
+  defaultPrompt: 'Bienvenido. ¿Qué lo trae por aquí?',
+  async run({ robot }, cfg, state, row) {
+    const answer = await robot.choose(row.prompt, PURPOSES.map(([label]) => label), {
+      hints: Object.fromEntries(PURPOSES.map(([label, , hint]) => [label, hint])),
+    });
+    state.purpose = PURPOSES.find(([label]) => label === answer)?.[1];
+    return state.purpose ? null : { reason: 'no dijo qué lo trae' };
+  },
+});
+
+const alnum = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const words = (s) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+const STOP = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'en', 'al', 'a', 'zona', 'area']);
+// "cancha tenis" y "la cancha de tenis" son el mismo lugar: todas las palabras que dijo están en el nombre del lugar
+const sameArea = (said, place) => {
+  const have = new Set(words(place)), mine = words(said).filter((w) => !STOP.has(w));
+  return mine.length > 0 && mine.every((w) => have.has(w));
+};
+
+// Evento con lista de invitados o de trabajadores y un código para todos: para pasar tienen que coincidir el nombre
+// (en la lista) y el código (el del evento). Si el evento lo pide ("requireArea"), también el área a la que dice ir.
+registerMethod({
+  id: 'guest',
+  label: 'Nombre, destino y código (lista del evento)',
+  help: 'El robot pregunta el nombre, a dónde se dirige y el código de entrada. Pasa solo si el nombre está en la lista del evento y el código es el de ese evento; en trabajos, el área también debe coincidir.',
+  async run({ robot, workspace }, cfg, state, row) {
+    const name = (await robot.ask('¿Cuál es su nombre?', { kind: 'name' }))?.trim();
+    const where = (await robot.ask('¿A dónde se dirige?', { kind: 'destination' }))?.trim();
+    const code = alnum(await robot.ask('¿Cuál es su código de entrada?', { kind: 'code' }));
+    if (!name || !code) return { reason: 'faltó el nombre o el código' };
+    const event = (workspace.events ?? []).find((ev) => (ev.codes ?? []).some((c) => alnum(c.code) === code));
+    if (!event) return { reason: 'el código no es de ningún evento' };
+    if (event.active === false) return { reason: `${event.name} no está vigente` };
+    const listed = event.guests ? event.guests.find((g) => same(g, name)) : name;
+    if (!listed) return { reason: `su nombre no está en la lista de ${event.name}` };
+    if (event.requireArea && !sameArea(where, event.place)) return { reason: `dijo ir a «${where}», pero el trabajo es en ${event.place}` };
+    const role = event.codes.find((c) => alnum(c.code) === code).role;
+    return { category: role, name: listed, event: event.name, place: event.place, area: event.requireArea ? event.place : undefined,
+      via: `${event.name}: nombre${event.requireArea ? ', área' : ''} y código` };
+  },
+});
+
 // Cuándo se usa un método, según lo que dijo la cámara ('sin cámara' = no se ha usado o está desactivada).
 export const WHEN = [
   ['siempre', 'Siempre'],
   ['no miembro', 'Si la cámara dice que no es miembro'],
   ['duda', 'Si la cámara duda'],
   ['no miembro o duda', 'Si no es miembro o la cámara duda'],
+  ['personal', 'Si dice que es del personal'],
+  ['evento o trabajo', 'Si dice que viene a un evento o a trabajar'],
 ];
 const WHEN_STATES = {
   'siempre': null,
@@ -138,4 +194,8 @@ const WHEN_STATES = {
   'duda': ['duda', 'sin cámara'],
   'no miembro o duda': ['no miembro', 'duda', 'sin cámara'],
 };
-export const whenOk = (when, camera) => !WHEN_STATES[when] || WHEN_STATES[when].includes(camera);
+export const whenOk = (when, camera, purpose) => {
+  if (when === 'personal') return purpose === 'personal';
+  if (when === 'evento o trabajo') return purpose === 'evento' || purpose === 'trabajo';
+  return !WHEN_STATES[when] || WHEN_STATES[when].includes(camera);
+};

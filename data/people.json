@@ -1,5 +1,71 @@
 [
   {
+    "id": "d1",
+    "name": "Adriana Galbán",
+    "truth": "VIP (juega tenis a las 3 pm)",
+    "face": {
+      "isMember": true,
+      "confidence": 0.96
+    },
+    "choices": [
+      "Sí, a las 5 pm"
+    ]
+  },
+  {
+    "id": "d2",
+    "name": "Santiago Urrego",
+    "truth": "Miembro regular (quiere tenis a las 5 pm)",
+    "face": {
+      "isMember": true,
+      "confidence": 0.93
+    },
+    "request": "Quiero reservar tenis para hoy a las 5 pm",
+    "choices": [
+      "Cancha de pádel"
+    ]
+  },
+  {
+    "id": "d3",
+    "name": "Rafael Salcedo",
+    "truth": "Invitado (lista del evento + código)",
+    "face": {
+      "isMember": false,
+      "confidence": 0.9
+    },
+    "code": "FIESTA-7K2",
+    "destination": "La fiesta de cumpleaños en la terraza",
+    "choices": [
+      "Vengo a un evento"
+    ]
+  },
+  {
+    "id": "d4",
+    "name": "Fermín Escalona",
+    "truth": "Personal del club (llega tarde a una reunión)",
+    "face": {
+      "isMember": false,
+      "confidence": 0.92
+    },
+    "document": "5050505050",
+    "choices": [
+      "Soy del personal del club"
+    ]
+  },
+  {
+    "id": "d5",
+    "name": "Santiago Gutiérrez",
+    "truth": "Trabajador externo (reparación de la cancha)",
+    "face": {
+      "isMember": false,
+      "confidence": 0.91
+    },
+    "code": "X67",
+    "destination": "Cancha de tenis",
+    "choices": [
+      "Vengo a realizar un trabajo"
+    ]
+  },
+  {
     "id": "p1",
     "name": "Camila Restrepo",
     "truth": "VIP",

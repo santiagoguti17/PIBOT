@@ -72,6 +72,30 @@
       "desc": "cambiarse, dejar las cosas, casilleros del personal",
       "kind": "vestier",
       "color": "#6e4fb8"
+    },
+    {
+      "name": "Cancha de tenis",
+      "x": 2.3,
+      "y": 2.7,
+      "desc": "jugar tenis, reservar la cancha de tenis",
+      "kind": "gimnasio",
+      "color": "#4f8f2f"
+    },
+    {
+      "name": "Cancha de pádel",
+      "x": 2.4,
+      "y": 0.7,
+      "desc": "jugar pádel, reservar la cancha de pádel",
+      "kind": "gimnasio",
+      "color": "#7a9a24"
+    },
+    {
+      "name": "Piscina",
+      "x": 2.3,
+      "y": -1.7,
+      "desc": "nadar, la piscina, hacer largos",
+      "kind": "spa",
+      "color": "#2f86c8"
     }
   ],
   "events": [
@@ -86,12 +110,13 @@
           "code": "FIESTA-7K2",
           "role": "Invitado",
           "holder": ""
-        },
-        {
-          "code": "FIESTA-9M4",
-          "role": "Invitado",
-          "holder": ""
         }
+      ],
+      "guests": [
+        "Rafael Salcedo",
+        "Laura Giraldo",
+        "Daniela Ruiz",
+        "Esteban Mora"
       ]
     },
     {
@@ -121,6 +146,26 @@
           "holder": ""
         }
       ]
+    },
+    {
+      "id": "e4",
+      "name": "Reparación de la cancha de tenis",
+      "type": "Trabajo",
+      "place": "Cancha de tenis",
+      "active": true,
+      "requireArea": true,
+      "guests": [
+        "Santiago Gutiérrez",
+        "Luis Cárdenas",
+        "Marta Ospina"
+      ],
+      "codes": [
+        {
+          "code": "X67",
+          "role": "Trabajador externo",
+          "holder": ""
+        }
+      ]
     }
   ],
   "registries": {
@@ -139,6 +184,20 @@
         "key": "Mateo Vargas",
         "tier": "Regular",
         "document": "3030303030"
+      },
+      {
+        "key": "Adriana Galbán",
+        "tier": "VIP",
+        "document": "1111111111",
+        "habit": {
+          "resource": "Cancha de tenis",
+          "time": "15:00"
+        }
+      },
+      {
+        "key": "Santiago Urrego",
+        "tier": "Regular",
+        "document": "2222222222"
       }
     ],
     "Nómina de personal": [
@@ -148,6 +207,18 @@
         "holder": "Jorge Pineda",
         "area": "Operaciones",
         "document": "4040404040"
+      },
+      {
+        "code": "EMP-0577",
+        "role": "Personal del club",
+        "holder": "Fermín Escalona",
+        "area": "Administración",
+        "document": "5050505050",
+        "agenda": {
+          "time": "11:00",
+          "what": "Reunión de coordinación",
+          "place": "Restaurante"
+        }
       }
     ]
   },
@@ -163,5 +234,66 @@
     "contractor": "Trabajador externo",
     "staff": "Personal del club",
     "employee": "Personal del club"
+  },
+  "resources": [
+    {
+      "name": "Cancha de tenis",
+      "article": "la",
+      "place": "Cancha de tenis",
+      "aliases": [
+        "tenis"
+      ],
+      "slots": [
+        "15:00",
+        "17:00"
+      ],
+      "blocks": [
+        {
+          "time": "15:00",
+          "reason": "mantenimiento de la cancha"
+        }
+      ],
+      "bookings": []
+    },
+    {
+      "name": "Cancha de pádel",
+      "article": "la",
+      "place": "Cancha de pádel",
+      "aliases": [
+        "padel",
+        "pádel"
+      ],
+      "slots": [
+        "16:00",
+        "18:00"
+      ],
+      "blocks": [],
+      "bookings": []
+    },
+    {
+      "name": "Piscina",
+      "article": "la",
+      "place": "Piscina",
+      "aliases": [
+        "piscina",
+        "nadar"
+      ],
+      "slots": [
+        "16:00",
+        "17:00",
+        "18:00"
+      ],
+      "blocks": [],
+      "bookings": []
+    }
+  ],
+  "briefings": {
+    "Personal del club": [
+      "Hoy hay un grupo grande a la hora del almuerzo.",
+      "A las 3 pm hay comida de administrativos."
+    ]
+  },
+  "clock": {
+    "now": "11:30"
   }
 }

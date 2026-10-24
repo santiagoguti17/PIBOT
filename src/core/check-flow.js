@@ -6,6 +6,7 @@ import { placeFor } from './places.js';
 // Datos que el flujo conoce de quien llega (los pone "Identificar visitante" o el paso que pregunta)
 export const KNOWN_VARS = ['name', 'category', 'event', 'place', 'area', 'via', 'camera', 'reason', 'choice', 'requested', 'allowed',
   'destination', 'similarity', // del reconocimiento facial real (destino registrado en Supabase)
+  'resource', 'time', 'meeting', 'meetingPlace', 'meetingTime', 'minutesLate', // de las reservas y la agenda
   'holder', 'role', 'code', 'type', 'tier', 'confidence', 'isMember']; // los últimos, de los nodos sueltos de "Avanzado"
 const TEXT_KEYS = ['message', 'text', 'question', 'title', 'note', 'bye', 'denied', 'destination', 'allowed'];
 

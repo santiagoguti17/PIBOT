@@ -202,7 +202,7 @@ async function voiceAsk(kind) {
       const heard = got?.heard;
       if (!heard) { if (attempt === 0) await robot.speak('¿Perdón? No le escuché.'); continue; }
       if (NO_ANSWER.test(norm(heard))) return null;
-      if (kind === 'name') return heard.replace(/[.,;!?¿¡]/g, '').trim();
+      if (kind === 'name' || kind === 'destination' || kind === 'request') return heard.replace(/[.,;!?¿¡]/g, '').trim();
       const said = spokenCode(heard);
       if (kind === 'document') return said.replace(/\D/g, '') || null;
       // El código tal como está registrado ("FIESTA-7K2"), aunque Whisper lo haya escrito distinto ("fiesta 7 cados")

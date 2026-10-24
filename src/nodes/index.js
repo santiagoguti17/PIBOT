@@ -14,3 +14,5 @@ import './serve.js';
 import './show.js';
 import './gesture.js';
 import './approve.js';
+import './booking.js';
+import './schedule.js';

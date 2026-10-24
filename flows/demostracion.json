@@ -1,0 +1,347 @@
+{
+  "name": "Demostración N Club: los cinco visitantes",
+  "nodes": [
+    {
+      "id": "n1",
+      "type": "visitor.identify",
+      "name": "Identificar visitante",
+      "x": 24,
+      "y": 397,
+      "config": {
+        "methods": [
+          {
+            "id": "camera",
+            "on": true,
+            "when": "siempre"
+          },
+          {
+            "id": "name",
+            "on": true,
+            "when": "duda",
+            "prompt": "Para estar seguro, ¿me confirma su nombre?"
+          },
+          {
+            "id": "purpose",
+            "on": true,
+            "when": "no miembro o duda",
+            "prompt": "Bienvenido a N Club. ¿Qué lo trae por aquí?"
+          },
+          {
+            "id": "document",
+            "on": true,
+            "when": "personal",
+            "prompt": "Muéstreme su carné del club, por favor."
+          },
+          {
+            "id": "guest",
+            "on": true,
+            "when": "evento o trabajo"
+          },
+          {
+            "id": "code",
+            "on": false,
+            "when": "no miembro",
+            "prompt": "Bienvenido. Para orientarle, ¿me indica su código de acceso?"
+          }
+        ]
+      }
+    },
+    {
+      "id": "v1",
+      "type": "robot.gesture",
+      "name": "VIP: saludo",
+      "x": 334,
+      "y": 64,
+      "config": {
+        "gesture": "saludar"
+      }
+    },
+    {
+      "id": "v2",
+      "type": "booking.habit",
+      "name": "VIP: su tenis de las 3 pm",
+      "x": 644,
+      "y": 108,
+      "config": {}
+    },
+    {
+      "id": "v3",
+      "type": "robot.orient",
+      "name": "VIP: su cancha está lista",
+      "x": 954,
+      "y": 152,
+      "config": {
+        "message": "Le acompaño a su cancha.",
+        "destination": "{{place}}"
+      }
+    },
+    {
+      "id": "v4",
+      "type": "robot.orient",
+      "name": "VIP: esperar en el salón",
+      "x": 954,
+      "y": 265,
+      "config": {
+        "message": "Mientras llega su hora, le acompaño al Salón VIP; a las {{time}} su cancha estará lista.",
+        "destination": "Salón VIP"
+      }
+    },
+    {
+      "id": "v5",
+      "type": "robot.serve",
+      "name": "VIP: ¿qué le apetece?",
+      "x": 954,
+      "y": 938,
+      "config": {
+        "question": "¿Qué le apetece hacer hoy, {{name}}?",
+        "allowed": "Salón VIP, Restaurante, Spa, Gimnasio, Terraza, Zona social"
+      }
+    },
+    {
+      "id": "r1",
+      "type": "booking.request",
+      "name": "Regular: ¿qué desea reservar?",
+      "x": 334,
+      "y": 177,
+      "config": {
+        "question": "Bienvenido de nuevo, {{name}}. ¿Qué le gustaría reservar hoy?",
+        "alternatives": "Cancha de pádel, Piscina"
+      }
+    },
+    {
+      "id": "r2",
+      "type": "robot.serve",
+      "name": "Regular: ¿le acompaño a algún lugar?",
+      "x": 644,
+      "y": 1007,
+      "config": {
+        "question": "¿Le acompaño a algún lugar mientras tanto?",
+        "allowed": "Restaurante, Gimnasio, Terraza, Zona social"
+      }
+    },
+    {
+      "id": "i1",
+      "type": "robot.show",
+      "name": "Invitado: tarjeta de bienvenida",
+      "x": 334,
+      "y": 398,
+      "config": {
+        "title": "{{event}}",
+        "text": "Nombre y código confirmados.\nLugar: {{place}}"
+      }
+    },
+    {
+      "id": "i2",
+      "type": "robot.orient",
+      "name": "Invitado: orientar",
+      "x": 644,
+      "y": 442,
+      "config": {
+        "message": "Bienvenido, {{name}}. Su nombre y su código coinciden con la lista de {{event}}. Le acompaño a {{place}}.",
+        "destination": "{{place}}"
+      }
+    },
+    {
+      "id": "p1",
+      "type": "schedule.check",
+      "name": "Personal: su agenda de hoy",
+      "x": 334,
+      "y": 624,
+      "config": {}
+    },
+    {
+      "id": "p2",
+      "type": "robot.orient",
+      "name": "Personal: va tarde",
+      "x": 644,
+      "y": 781,
+      "config": {
+        "message": "Buen día, {{name}}. Tiene {{meeting}} en {{meetingPlace}} desde las {{meetingTime}}: ya van {{minutesLate}} minutos.",
+        "destination": ""
+      }
+    },
+    {
+      "id": "p3",
+      "type": "robot.briefing",
+      "name": "Personal: parte del día",
+      "x": 954,
+      "y": 825,
+      "config": {
+        "audience": "Personal del club",
+        "intro": "Le pongo al día mientras caminamos."
+      }
+    },
+    {
+      "id": "p4",
+      "type": "robot.orient",
+      "name": "Personal: ir a la reunión",
+      "x": 1264,
+      "y": 869,
+      "config": {
+        "message": "Eso es todo. Le acompaño a {{meetingPlace}}.",
+        "destination": "{{meetingPlace}}"
+      }
+    },
+    {
+      "id": "p5",
+      "type": "robot.orient",
+      "name": "Personal: a tiempo",
+      "x": 644,
+      "y": 668,
+      "config": {
+        "message": "Buen día, {{name}}. Su {{meeting}} es en {{meetingPlace}}; le acompaño.",
+        "destination": "{{meetingPlace}}"
+      }
+    },
+    {
+      "id": "p6",
+      "type": "robot.orient",
+      "name": "Personal: sin agenda",
+      "x": 644,
+      "y": 894,
+      "config": {
+        "message": "Buen turno, {{name}}. Hoy no tiene reuniones; le indico el camino al vestier.",
+        "destination": "Vestier de personal"
+      }
+    },
+    {
+      "id": "t1",
+      "type": "robot.orient",
+      "name": "Externo: ingreso confirmado",
+      "x": 334,
+      "y": 511,
+      "config": {
+        "message": "Gracias, {{name}}. Su nombre, el área ({{place}}) y el código coinciden con la orden de trabajo «{{event}}». Puede ingresar; le guío por el acceso de servicio.",
+        "destination": "Acceso de servicio → {{place}}"
+      }
+    },
+    {
+      "id": "h1",
+      "type": "escalation.assist",
+      "name": "Pasar a recepción",
+      "x": 334,
+      "y": 791,
+      "config": {
+        "message": "No logro confirmar quién es con certeza. Aviso a recepción para que le atiendan enseguida.",
+        "note": "Visitante sin confirmar: {{reason}}. Cámara: {{camera}}."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "n1",
+      "fromPort": "VIP",
+      "to": "v1"
+    },
+    {
+      "from": "v1",
+      "fromPort": "out",
+      "to": "v2"
+    },
+    {
+      "from": "v2",
+      "fromPort": "confirmada",
+      "to": "v3"
+    },
+    {
+      "from": "v2",
+      "fromPort": "reprogramada",
+      "to": "v4"
+    },
+    {
+      "from": "v2",
+      "fromPort": "no quiso",
+      "to": "v5"
+    },
+    {
+      "from": "v2",
+      "fromPort": "sin horario",
+      "to": "v5"
+    },
+    {
+      "from": "v2",
+      "fromPort": "sin hábito",
+      "to": "v5"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Regular",
+      "to": "r1"
+    },
+    {
+      "from": "r1",
+      "fromPort": "reservado",
+      "to": "r2"
+    },
+    {
+      "from": "r1",
+      "fromPort": "alternativa",
+      "to": "r2"
+    },
+    {
+      "from": "r1",
+      "fromPort": "sin reserva",
+      "to": "r2"
+    },
+    {
+      "from": "r1",
+      "fromPort": "no entendí",
+      "to": "r2"
+    },
+    {
+      "from": "r1",
+      "fromPort": "sin respuesta",
+      "to": "r2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Invitado",
+      "to": "i1"
+    },
+    {
+      "from": "i1",
+      "fromPort": "out",
+      "to": "i2"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Personal del club",
+      "to": "p1"
+    },
+    {
+      "from": "p1",
+      "fromPort": "tarde",
+      "to": "p2"
+    },
+    {
+      "from": "p2",
+      "fromPort": "out",
+      "to": "p3"
+    },
+    {
+      "from": "p3",
+      "fromPort": "out",
+      "to": "p4"
+    },
+    {
+      "from": "p1",
+      "fromPort": "a tiempo",
+      "to": "p5"
+    },
+    {
+      "from": "p1",
+      "fromPort": "sin agenda",
+      "to": "p6"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Trabajador externo",
+      "to": "t1"
+    },
+    {
+      "from": "n1",
+      "fromPort": "Necesita ayuda",
+      "to": "h1"
+    }
+  ]
+}

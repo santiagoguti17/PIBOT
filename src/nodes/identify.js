@@ -31,6 +31,8 @@ registerNode({
       { id: 'code', on: true, when: 'no miembro', prompt: 'Bienvenido. Para orientarle, ¿me indica su código de acceso?' },
       { id: 'document', on: false, when: 'no miembro o duda', prompt: '¿Me muestra su cédula o carné?' },
       { id: 'name', on: true, when: 'duda', prompt: 'Para estar seguro, ¿me confirma su nombre?' },
+      { id: 'purpose', on: false, when: 'no miembro o duda', prompt: 'Bienvenido. ¿Qué lo trae por aquí?' },
+      { id: 'guest', on: false, when: 'evento o trabajo' },
     ],
   },
   ports: (cfg) => [...list(cfg.categories), HELP],
@@ -43,7 +45,7 @@ registerNode({
     const ctx = { person, robot, workspace };
     for (const row of cfg.methods.filter((m) => m.on)) {
       const method = getMethod(row.id);
-      if (!method || !whenOk(row.when, state.camera)) continue;
+      if (!method || !whenOk(row.when, state.camera, state.purpose)) continue;
       const r = await method.run(ctx, cfg, state, { ...row, prompt: row.prompt || method.defaultPrompt });
       if (r?.reason) state.reasons.push(r.reason);
       if (!r?.category) continue;
